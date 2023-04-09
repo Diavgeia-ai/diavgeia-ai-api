@@ -1,0 +1,33 @@
+{
+  "name": "diavgeia-ai-ingest",
+  "version": "1.0.0",
+  "description": "Ingestion script for diavgeia-ai: searches diavgeia for decisions (πράξεις), creates embeddings of attached documents and saves them to chroma.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supercharge/promise-pool": "^2.4.0",
+    "@types/pdf": "^0.0.31",
+    "@types/pdfjs-dist": "^2.10.378",
+    "axios": "^1.3.5",
+    "chromadb": "^1.3.1",
+    "cohere-ai": "^6.2.0",
+    "dotenv": "^16.0.3",
+    "openai": "^3.2.1",
+    "pdf": "^0.1.0",
+    "pdf-parse": "^1.1.1",
+    "pdfjs": "^2.4.7",
+    "pdfjs-dist": "^3.5.141",
+    "pdfjs-dist-legacy": "^1.0.1",
+    "tiktoken-node": "^0.0.5",
+    "yargs": "^17.7.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.15.11",
+    "@types/pdf-parse": "^1.1.1",
+    "@types/yargs": "^17.0.24"
+  }
+}
