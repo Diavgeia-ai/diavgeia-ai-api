@@ -1,5 +1,3 @@
-
-//@ts-ignore
 import { getDocument } from 'pdfjs-dist-legacy';
 import axios from 'axios';
 import Logger from './logger';
@@ -64,9 +62,11 @@ export default class Decision {
         
         let metadata = await doc.getMetadata();
 
-        let metadataObj = metadata.metadata.getAll();
-        for (let key in metadataObj) {
-            this._metadata[`pdfMetadata_${key}`] = metadataObj[key as keyof typeof metadataObj];
+        if (metadata.metadata) {
+            let metadataObj = metadata.metadata.getAll();
+            for (let key in metadataObj) {
+                this._metadata[`pdfMetadata_${key}`] = metadataObj[key as keyof typeof metadataObj];
+            }
         }
         for (let key in metadata.info) {
             this._metadata[`pdfInfo_${key}`] = metadata.info[key as keyof typeof metadata.info];
