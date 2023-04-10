@@ -89,6 +89,7 @@ export default class Decision {
     }
 
     async _generateCohereEmbedding() : Promise<number[]> {
+        UsageMonitor.addCost(0.001);
         return generateCohereEmbedding(EMBEDDING_MODEL, this.embeddingText);
     }
 
@@ -178,12 +179,6 @@ export default class Decision {
     }
 
     public get embeddingText() : string {
-        return `
-            DOCUMENT
-            SUBJECT: ${this._metadata.subject}
-            TEXT START
-            ${this.documentText}
-            TEXT END
-        `;
+        return `Subject: ${this._metadata.subject}\n\n${this.documentText}`;
     }
 }
