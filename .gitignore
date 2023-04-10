@@ -1,6 +1,9 @@
 # Node.js dependencies
 node_modules/
 
+# Mah test file
+test.ts
+
 # Build artifacts
 dist/
 

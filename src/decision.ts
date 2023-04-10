@@ -5,18 +5,23 @@ import { ChromaClient } from 'chromadb';
 import {OpenAIEmbeddingFunction}  from 'chromadb';
 import TikToken from "tiktoken-node";
 import dotenv from 'dotenv';
-import { combineEmbeddings, equalSizes } from './utils';
+import { combineEmbeddings, equalSizes, generateCohereEmbedding, getOpenAIClient } from './utils';
 import {Configuration, OpenAIApi} from 'openai';
 import UsageMonitor from './embeddingUsageMonitor';
+import Cohere from "cohere-ai";
+import { ModelName, EmbeddingProvider } from './types';
 
 dotenv.config();
-const configuration = new Configuration({
-    apiKey: process.env.OPENAI_API_KEY!,
-});
-const openai = new OpenAIApi(configuration);
+const openai = getOpenAIClient();
+Cohere.init(process.env.COHERE_API_KEY!);
 
-const MAX_TOKENS_PER_REQUEST = 2000;
-const EMBEDDING_MODEL = "text-embedding-ada-002";
+const MAX_TOKENS_PER_REQUEST = 512;
+const MODELS : {[key : string] : ModelName}= {
+    "OpenAI": "text-embedding-ada-002",
+    "Cohere": "multilingual-22-12"
+}
+const EMBEDDING_PROVIDER : EmbeddingProvider = "Cohere";
+const EMBEDDING_MODEL : ModelName = MODELS.Cohere;
 
 /*
  * A decision (Πράξη) from Diavgeia.
@@ -58,7 +63,7 @@ export default class Decision {
             }).join(" "));
         }
 
-        this._documentText = pageTexts.join(" ");
+        this._documentText = pageTexts.join(" || ");
         
         let metadata = await doc.getMetadata();
 
@@ -74,6 +79,20 @@ export default class Decision {
     }
 
     async generateEmbedding() : Promise<number[]> {
+        if (EMBEDDING_PROVIDER === "OpenAI") {
+            return this._generateOpenAIEmbedding();
+        } else if (EMBEDDING_PROVIDER === "Cohere") {
+            return this._generateCohereEmbedding();
+        } else {
+            throw new Error("Invalid embedding provider");
+        }
+    }
+
+    async _generateCohereEmbedding() : Promise<number[]> {
+        return generateCohereEmbedding(EMBEDDING_MODEL, this.embeddingText);
+    }
+
+    async _generateOpenAIEmbedding() : Promise<number[]> {
         let encoder = TikToken.encodingForModel("text-embedding-ada-002")
         let encoding = encoder.encode(this.embeddingText);
 

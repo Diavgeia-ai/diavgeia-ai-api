@@ -1,4 +1,15 @@
 import {PromisePool} from "@supercharge/promise-pool";
+import { ChromaClient } from 'chromadb';
+import Logger from './logger';
+import { OpenAIApi, Configuration } from "openai";
+import { Collection } from 'chromadb';
+import dotenv from 'dotenv';
+import { ModelName } from './types';
+import Cohere from "cohere-ai";
+
+dotenv.config();
+const logger = new Logger();
+Cohere.init(process.env.COHERE_API_KEY!);
 
 export type DiavgeiaQuery = {
     decisionTypeUid: string[],
@@ -39,6 +50,7 @@ export async function doWithPooling<A, B> (elems : A[], func : ((x : A) => Promi
     let {results, errors} = await PromisePool
         .withConcurrency(concurrency)
         .for(elems)
+        .useCorrespondingResults()
         .process(func);
 
     if (errors.length > 0) {
@@ -47,5 +59,49 @@ export async function doWithPooling<A, B> (elems : A[], func : ((x : A) => Promi
         throw new Error(`Errors: ${errors.length}`);
     }
 
+    //@ts-ignore
     return results;
+}
+
+export const getOrCreateChromaCollection = async (collectionName : string) : Promise<Collection> => {
+    let client = new ChromaClient();
+    let collections = await client.listCollections();
+    
+    let collection;
+    if (collections.map((c : any) => c.name).filter((n : string) => n === collectionName).length === 0) {
+        logger.info(`Creating collection ${collectionName}`);
+        collection = await client.createCollection(collectionName);
+    } else {
+        logger.info(`Getting collection ${collectionName}`);
+        collection = await client.getCollection(collectionName);
+    }
+
+    return collection;
+}
+
+export const deleteCollection = async (collectionName : string) => {
+    let client = new ChromaClient();
+    await client.deleteCollection(collectionName);
+}
+
+export const getOpenAIClient = () => {
+    const configuration = new Configuration({
+        apiKey: process.env.OPENAI_API_KEY!,
+    });
+    return new OpenAIApi(configuration);
+}
+
+export const generateCohereEmbedding = async (model : ModelName, text : string) => {
+    let embedResponse;
+    try {
+        embedResponse = await Cohere.embed({
+            texts: [text],
+            model,
+            truncate: "END"
+        });
+    } catch (e) {   
+        console.log(e);
+        throw e;
+    }
+    return embedResponse.body.embeddings[0];
 }

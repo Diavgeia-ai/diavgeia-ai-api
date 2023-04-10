@@ -3,7 +3,7 @@ import Decision from './decision';
 import { DiavgeiaQuery, diavgeiaSearchQuery, sleep } from './utils';
 import Logger from './logger';
 import axios from 'axios';
-import { doWithPooling } from './utils';
+import { doWithPooling, getOrCreateChromaCollection } from './utils';
 import { ChromaClient } from 'chromadb'
 import dotenv from 'dotenv';
 const client = new ChromaClient();
@@ -31,25 +31,10 @@ let getTotalDecisionCount = async (diavgeiaQuery : DiavgeiaQuery) => {
     return response.data.info.total;
 }
 
-let initChromaClient = async (collectionName : string) => {
-    let client = new ChromaClient();
-    let collections = await client.listCollections();
-    
-    let collection;
-    if (collections.map((c : any) => c.name).filter((n : string) => n === collectionName).length === 0) {
-        logger.info(`Creating collection ${collectionName}`);
-        collection = await client.createCollection(collectionName);
-    } else {
-        logger.info(`Getting collection ${collectionName}`);
-        collection = await client.getCollection(collectionName);
-    }
-
-    return collection;
-}
 
 let embedDiavgeia = async (diavgeiaQuery : DiavgeiaQuery, startPage = 0, pages = Infinity) => {
     let [client, totalDecisions] = await Promise.all([
-        initChromaClient(process.env.CHROMA_COLLECTION!),
+        getOrCreateChromaCollection(process.env.CHROMA_COLLECTION!),
         getTotalDecisionCount(diavgeiaQuery)]);
 
     logger.info(`${totalDecisions} total decision for query`);
@@ -64,8 +49,8 @@ let embedDiavgeia = async (diavgeiaQuery : DiavgeiaQuery, startPage = 0, pages =
         await doWithPooling(decisions, (d) => d.loadDocument(), 10);
 
         logger.info(`Embedding documents for page ${page}, with ${decisions.length} decisions...`);
+        await sleep(30000);
         let embeddings = await doWithPooling(decisions, (d) => d.generateEmbedding(), 10);
-
         logger.info(`Saving embeddings for page ${page}, with ${decisions.length} decisions...`);
         await client.add(
             decisions.map((d) => d.metadata.ada),
