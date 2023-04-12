@@ -10,7 +10,7 @@ const client = new ChromaClient();
 
 dotenv.config();
 let logger = new Logger();
-const DIAVGEIA_PAGE_SIZE = 50;
+const DIAVGEIA_PAGE_SIZE = 45;
 
 let fetchDiavgeiaPage = async (diavgeiaQuery : DiavgeiaQuery, page : number, pageSize = 500) : Promise<Decision[]> => {
     let query = diavgeiaSearchQuery(diavgeiaQuery, page, pageSize);

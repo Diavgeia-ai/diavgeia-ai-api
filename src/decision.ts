@@ -5,9 +5,9 @@ import { ChromaClient } from 'chromadb';
 import {OpenAIEmbeddingFunction}  from 'chromadb';
 import TikToken from "tiktoken-node";
 import dotenv from 'dotenv';
-import { combineEmbeddings, equalSizes, generateCohereEmbedding, getOpenAIClient } from './utils';
+import { combineEmbeddings, equalSizes, generateCohereEmbedding, getOpenAIClient, isWhitespace } from './utils';
 import {Configuration, OpenAIApi} from 'openai';
-import UsageMonitor from './embeddingUsageMonitor';
+import UsageMonitor from './UsageMonitor';
 import Cohere from "cohere-ai";
 import { ModelName, EmbeddingProvider } from './types';
 
@@ -48,12 +48,23 @@ export default class Decision {
         if (this._documentUrl === "" || this._documentUrl === null || this._documentUrl === "null") {
             this._log.warn("No document URL, skipping...");
             this._documentText = "";
+            this._metadata.hasDocument = false;
             return;
         }
+        this._metadata.hasDocument = true;
 
         this._log.info(`Loading document from ${this._documentUrl}...`);
         
-        let doc = await getDocument(encodeURI(this._documentUrl)).promise;
+        let doc;
+        try {
+            doc = await getDocument(encodeURI(this._documentUrl)).promise;
+        } catch (e) {
+            this._log.error(`Failed to load document: ${e}`);
+            this._metadata.textExtractionFailure = true;
+            this._documentText = "";
+            return;
+        }
+
         let pageTexts  : string[] = [];
         for (let i = 1; i <= doc.numPages; i++) {
             let page = await doc.getPage(i);
@@ -63,10 +74,17 @@ export default class Decision {
             }).join(" "));
         }
 
-        this._documentText = pageTexts.join(" || ");
-        
-        let metadata = await doc.getMetadata();
+        if (isWhitespace(pageTexts.join(""))) {
+            this._log.warn("Document text is empty, marking metadata...");
+            this._metadata.textExtractionFailure = true;
+            pageTexts = [];
+        } else {
+            this._metadata.textExtractionFailure = false;
+        }
 
+        this._documentText = pageTexts.join(" || ");
+
+        let metadata = await doc.getMetadata();
         if (metadata.metadata) {
             let metadataObj = metadata.metadata.getAll();
             for (let key in metadataObj) {
@@ -179,6 +197,14 @@ export default class Decision {
     }
 
     public get embeddingText() : string {
-        return `Subject: ${this._metadata.subject}\n\n${this.documentText}`;
+        let text = this.documentText;
+        if (isWhitespace(text)) {
+            text = "Δεν υπάρχει κείμενο στην απόφαση";
+        }
+
+        return [
+            ["Subject", this._metadata.subject].join(":\n"),
+            ["Content", text].join(":\n")
+        ].join("\n\n");
     }
 }

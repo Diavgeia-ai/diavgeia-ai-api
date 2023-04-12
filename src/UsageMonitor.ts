@@ -1,14 +1,9 @@
 import Logger from './logger';
 import env from 'dotenv';
 import { ModelName } from './types';
+import { modelTokenPriceUsd } from './utils';
 
 env.config();
-
-const modelTokenPriceUsd = {
-    // From https://openai.com/pricing/, https://cohere.ai/pricing
-    "text-embedding-ada-002": 0.0004 / 1000,
-    "multilingual-22-12": 0.0002 / 1000,
-}
 
 class EmbeddingUsageMonitor {
     private _maxCostUsd: number;

@@ -54,9 +54,8 @@ export async function doWithPooling<A, B> (elems : A[], func : ((x : A) => Promi
         .process(func);
 
     if (errors.length > 0) {
-        console.log(`Errors: ${errors.length}`);
-        console.log(errors);
-        throw new Error(`Errors: ${errors.length}`);
+        logger.error(`Errors: ${errors.length}`);
+        logger.error(errors.join("\n\n"));
     }
 
     //@ts-ignore
@@ -104,4 +103,15 @@ export const generateCohereEmbedding = async (model : ModelName, text : string) 
         throw e;
     }
     return embedResponse.body.embeddings[0];
+}
+
+export const isWhitespace = (str : string) => {
+    return str === "" || /^\s*$/.test(str);
+}
+
+export const modelTokenPriceUsd = {
+    // From https://openai.com/pricing/, https://cohere.ai/pricing
+    "text-embedding-ada-002": 0.0004 / 1000,
+    "multilingual-22-12": 0.0002 / 1000,
+    "text-davinci-003": 0.06 / 1000,
 }
