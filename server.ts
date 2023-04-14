@@ -109,7 +109,8 @@ app.get('/search', cache(), throttle(throttling), async (req, res) => {
             id: response.ids[0][i],
             distance: response.distances[0][i],
             subject: response.metadatas[0][i].subject,
-            metadata: response.metadatas[0][i]
+            metadata: response.metadatas[0][i],
+            document: response.documents[0][i]
         });
     }
 
