@@ -32,8 +32,19 @@ let throttling = {
 let getEmbeddings = async (decisions : Collection, ids : string[]) : Promise<number[][]> => {
     let response = await decisions.get(ids, undefined, undefined, undefined, [GetEmbeddingIncludeEnum.Embeddings]);
     let embeddings = response.embeddings;
-    console.log(embeddings.length);
-    return embeddings;
+
+    let res = [];
+    for (let i = 0; i < ids.length; i++) {
+        let ind = response.ids.indexOf(ids[i]);
+        if (ind === -1) {
+            res.push([]);
+        } else {
+            res.push(embeddings[ind]);
+        }
+    }
+
+
+    return res;
 }
 
 let cache = apicache.options({
