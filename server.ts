@@ -195,7 +195,7 @@ app.get('/embed', async (req, res) => {
 
 const start = async () => {
     decisions = await getOrCreateChromaCollection(process.env.CHROMA_COLLECTION!);
-    let port = process.env.PORT || 3000;
+    let port = process.env.API_PORT || 3000;
     app.listen(port, () => {
         console.log(`Server started on port ${port}`);
     });
