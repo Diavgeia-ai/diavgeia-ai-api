@@ -52,6 +52,13 @@ let cache = apicache.options({
     statusCodes: {include: [200]}
 }).middleware
 
+const emptyResponse = {
+    ids: [[]],
+    distances: [[]],
+    metadatas: [[]],
+    documents: [[]]
+};
+
 app.get('/search', cache(), throttle(throttling), async (req, res) => {
     let query = req.query.q;
     let n = parseInt(req.query.n as string);
@@ -89,32 +96,25 @@ app.get('/search', cache(), throttle(throttling), async (req, res) => {
     let whereDecisionType = whereObj.decisionType; 
     delete whereObj.decisionType;
 
-    let where = {
-        "$and": [
-            whereObj,
-            {"hasDocument": {"$eq": "true"}},
-            {"textExtractionFailure": {"$eq": "false"}}
-        ].filter((x) => Object.keys(x).length > 0) // necessary for a bug in chromadb
-    }
+    let where = whereObj;
+    console.log(JSON.stringify(where));
 
-    const response = await decisions.query(embedding, n, where);
+    let response = await decisions.query(embedding, n, where);
 
     //re-add the decision type
     whereObj.decisionType = whereDecisionType;
 
     if (response.error || response.detail) {
-        console.log(response);
-        res.status(500).send({"error": "Failed to query"});
-        return;
-    }
-
-    if (response.ids[0].length === 0) {
-        res.send({results: []});
-        return;
+        if (response.detail && response.detail.includes("No datapoints found for the supplied filter")) {
+            response = emptyResponse;
+        } else {
+            console.log(response);
+            res.status(500).send({"error": "Failed to query"});
+            return;
+        }
     }
 
     let results = [];
-    console.log(response);
     for (let i = 0; i < response.ids[0].length; i++) {
         results.push({
             id: response.ids[0][i],

@@ -42,9 +42,19 @@ const getQueryPrompt = (textQuery : string) => {
     {"text": "Ανάπτυξη Ιστοσελίδων", "issueDate": {"$gt": "2020-01-01", "$lte": "2020-06-30"}
 
     All the above are examples. Do not use the sample values above in your response, use only data that's in the query that I am about to give you.
+    For the relative time queries, the current date is ${new Date().toISOString()}.
     Now generate the JSON for the JSON query for query "${textQuery}":
     `;
 };
+
+let convertIssueDateFilter = (filter : any) => {
+    if (filter === undefined) return undefined;
+
+    return {"$and": [
+        {"issueDate": {"$gt": Date.parse(filter["$gt"])}},
+        {"issueDate": {"$lte": Date.parse(filter["$lte"]) + 24 * 60 * 60 * 1000}},
+    ]};
+}
 
 export async function generateChromaQuery (textQuery : string) : Promise<ValueWithCost<[string, {[key : string] : object}]>> {
 
@@ -55,7 +65,8 @@ export async function generateChromaQuery (textQuery : string) : Promise<ValueWi
         var openaiResponse = await openai.createCompletion({
             model: MODEL,
             prompt,
-            max_tokens: 2048,
+            max_tokens: 2560,
+            temperature: 0.1
         });
     } catch (e : any) {
         console.log(e.response.data);
@@ -70,6 +81,11 @@ export async function generateChromaQuery (textQuery : string) : Promise<ValueWi
     }
     let jsonQuery = JSON.parse(textResponse);
     let text = jsonQuery.text;
+    if (jsonQuery.issueDate) {
+        let andClause = convertIssueDateFilter(jsonQuery.issueDate);
+        jsonQuery = {...jsonQuery, ...andClause};
+        delete jsonQuery.issueDate;
+    }
     delete jsonQuery.text;
 
     console.log("Generated query: ", text, jsonQuery);

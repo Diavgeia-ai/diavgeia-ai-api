@@ -32,11 +32,11 @@ export default class Decision {
     private _documentText ?: string = undefined;
     private _log : Logger;
     constructor(diavgeiaDecisionObj : {[key: string]: any}) {
+        this._log = new Logger(`Decision ${this._metadata.ada}`);
         this._extractData(diavgeiaDecisionObj);
         if (!this._metadata.ada || this._metadata.ada === "") {
             throw new Error("Decision ADA not set");
         }
-        this._log = new Logger(`Decision ${this._metadata.ada}`);
     }
 
     // Downloads a PDF file from Diavgeia and converts it to text
@@ -165,6 +165,12 @@ export default class Decision {
         } = diavgeiaDecisionObj.extraFieldValues;
 
         this._documentUrl = documentUrl;
+        if (!this._documentUrl) {
+            let inferredUrl = `https://diavgeia.gov.gr/doc/${ada}`;
+            this._log.warn(`Document URL not set, inferring from ADA: ${inferredUrl}`);
+            this._documentUrl = inferredUrl;
+        }
+
         this._metadata = {
             protocolNumber,
             subject,
