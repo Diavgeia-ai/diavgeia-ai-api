@@ -14,6 +14,7 @@ type TaskType = 'ingestor' | 'text-extractor' | 'embedder' | 'reducer';
 
 abstract class Task {
     // Common properties and methods for all tasks
+    id?: number;
     type: TaskType;
     implementation: string;
     name: string;
@@ -66,10 +67,12 @@ abstract class Task {
         } catch (error) {
             this.logger.error(`Task ${this.identifier()} failed: ${error}`);
             this.status = 'failed';
+            var err = error;
         } finally {
             this.updatedAt = new Date();
             this.logger.info(`Task ${this.identifier()} finished with status ${this.status}`);
             await this.save();
+            if (err) throw err;
         }
     }
 
@@ -83,7 +86,6 @@ abstract class Task {
     private identifier() {
         return `${this.type}/${this.implementation}/${this.name}#${this.version}`;
     }
-
 
     private async count(filter: TaskFilter = {}): Promise<number> {
         const query = `
@@ -114,12 +116,14 @@ abstract class Task {
     }
 
     private async save() {
-        await this.db.query(
-            'INSERT INTO tasks (type, implementation, name, version, status, created_at, updated_at, params, metrics) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (type, implementation, name, version) DO UPDATE SET status = $5, updated_at = $7, params = $8, metrics = $9',
+        let result = await this.db.query(
+            'INSERT INTO tasks (type, implementation, name, version, status, created_at, updated_at, params, metrics) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (type, implementation, name, version) DO UPDATE SET status = $5, updated_at = $7, params = $8, metrics = $9 RETURNING id',
             [this.type, this.implementation, this.name, this.version, this.status, this.createdAt, this.updatedAt, this.params, this.metrics]
         );
 
-        this.logger.debug(`Saved task ${this.identifier()}`);
+        this.id = result.rows[0].id;
+
+        this.logger.debug(`Saved task ${this.identifier()} with id ${this.id}`);
     }
 }
 
