@@ -1,0 +1,1 @@
+SELECT * FROM tasks ORDER BY updated_at DESC LIMIT 10;

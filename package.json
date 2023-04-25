@@ -5,8 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "ingest": "ts-node src/ingest.ts",
-    "chroma-cli": "ts-node src/chromaCli.ts"
+    "cli": "ts-node src/cli.ts",
+    "chroma-cli": "ts-node src/chromaCli.ts",
+    "create-db": "dotenv -- bash -c 'psql $DATABASE_URL < sql/db.sql'",
+    "recent-tasks": "dotenv -- bash -c 'psql $DATABASE_URL < sql/recentTasks.sql'"
   },
   "author": "",
   "license": "ISC",
@@ -16,12 +18,12 @@
     "@types/express": "^4.17.17",
     "@types/pdf": "^0.0.31",
     "@types/pdfjs-dist": "^2.10.378",
+    "@types/pg": "^8.6.6",
     "apicache": "^1.6.3",
     "axios": "^1.3.5",
     "chromadb": "file:~/chromadb-1.3.1.tgz",
     "cohere": "^1.1.1",
     "cohere-ai": "^6.2.0",
-    "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "express-throttle": "^2.0.0",
     "openai": "^3.2.1",
@@ -30,6 +32,7 @@
     "pdfjs": "^2.4.7",
     "pdfjs-dist": "^3.5.141",
     "pdfjs-dist-legacy": "^1.0.1",
+    "pg": "^8.10.0",
     "tiktoken-node": "^0.0.5",
     "tsne-js": "^1.0.3",
     "yargs": "^17.7.1"
@@ -38,6 +41,8 @@
     "@types/node": "^18.15.11",
     "@types/pdf-parse": "^1.1.1",
     "@types/yargs": "^17.0.24",
+    "dotenv": "^16.0.3",
+    "dotenv-cli": "^7.2.1",
     "ts-node": "^10.4.0"
   }
 }
