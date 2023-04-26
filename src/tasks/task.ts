@@ -70,7 +70,7 @@ abstract class Task {
             var err = error;
         } finally {
             this.updatedAt = new Date();
-            this.logger.info(`Task ${this.identifier()} finished with status ${this.status}`);
+            this.logger.info(`Task ${this.identifier()} with id ${this.id} finished with status ${this.status}`);
             await this.save();
             if (err) throw err;
         }
@@ -83,11 +83,11 @@ abstract class Task {
         await this.save();
     }
 
-    private identifier() {
+    protected identifier() {
         return `${this.type}/${this.implementation}/${this.name}#${this.version}`;
     }
 
-    private async count(filter: TaskFilter = {}): Promise<number> {
+    protected async count(filter: TaskFilter = {}): Promise<number> {
         const query = `
       SELECT COUNT(*) FROM tasks
       WHERE ($1::text IS NULL OR type = $1)
@@ -99,6 +99,11 @@ abstract class Task {
 
         const result = await this.db.query(query, [filter.type, filter.implementation, filter.name, filter.version, filter.status]);
         return result.rows[0].count;
+    }
+
+    protected async getTaskById(id: number): Promise<Task> {
+        const result = await this.db.query('SELECT * FROM tasks WHERE id = $1', [id]);
+        return result.rows[0];
     }
 
     private async getNextVersion(): Promise<number> {

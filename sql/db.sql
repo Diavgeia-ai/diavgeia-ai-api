@@ -30,7 +30,7 @@ CREATE TABLE texts (
   id SERIAL PRIMARY KEY,
   decision_id INTEGER REFERENCES decisions(id) ON DELETE CASCADE,
   text_extractor_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
-  text TEXT NOT NULL,
+  text TEXT,
   document_metadata JSONB,
   created_at TIMESTAMP NOT NULL DEFAULT now(),
   updated_at TIMESTAMP NOT NULL DEFAULT now()

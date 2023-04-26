@@ -54,6 +54,42 @@ let main = async () => {
         await ingestor.start({ startDate, endDate, decisionTypes });
       }
     )
+    .command(
+      'extract-text',
+      'Extract text from decisions',
+      (yargs) => {
+        return yargs
+          .option('impl', {
+            type: 'string',
+            description: 'Implementation of the extractor',
+            demandOption: true,
+          })
+          .option('name', {
+            type: 'string',
+            description: 'Human-friendly name for this task run',
+            demandOption: true,
+          })
+          .option('ingestorTaskId', {
+            type: 'string',
+            description: 'Task ID of the ingestor task to extract text from',
+            demandOption: true,
+          });
+      },
+      async (argv) => {
+        const { impl, name, ingestorTaskId } = argv;
+        const textExtractorCreatorPromise = await import('./tasks/textExtractors/textExtractors');
+        const textExtractors = await textExtractorCreatorPromise.default;
+
+        const textExtractorConstructor = textExtractors[impl as keyof typeof textExtractors];
+        if (!textExtractorConstructor) {
+          throw new Error(`Text extractor implementation not found: ${impl}. Available implementations: ${Object.keys(textExtractors)}`);
+        }
+
+        const textExtractor = textExtractorConstructor.create(name);
+
+        await textExtractor.start({ ingestorTaskId });
+      }
+    )
     .demandCommand(1, 'You need to specify a command')
     .strict()
     .help()

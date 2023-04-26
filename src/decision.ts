@@ -192,7 +192,7 @@ export default class Decision {
     }
 
     public get metadata(): { [key: string]: any } {
-        return this._metadata;
+        return { ...this._metadata, documentUrl: this.documentUrl };
     }
 
     public get documentUrl(): string {
