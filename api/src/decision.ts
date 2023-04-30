@@ -3,7 +3,6 @@ import axios from 'axios';
 import Logger from './logger';
 import { ChromaClient } from 'chromadb';
 import { OpenAIEmbeddingFunction } from 'chromadb';
-import TikToken from "tiktoken-node";
 import dotenv from 'dotenv';
 import { combineEmbeddings, equalSizes, generateCohereEmbedding, getOpenAIClient, isWhitespace } from './utils';
 import { Configuration, OpenAIApi } from 'openai';
@@ -98,9 +97,7 @@ export default class Decision {
     }
 
     async generateEmbedding(): Promise<number[]> {
-        if (EMBEDDING_PROVIDER === "OpenAI") {
-            return this._generateOpenAIEmbedding();
-        } else if (EMBEDDING_PROVIDER === "Cohere") {
+        if (EMBEDDING_PROVIDER === "Cohere") {
             return this._generateCohereEmbedding();
         } else {
             throw new Error("Invalid embedding provider");
@@ -110,36 +107,6 @@ export default class Decision {
     async _generateCohereEmbedding(): Promise<number[]> {
         UsageMonitor.addCost(0.001);
         return generateCohereEmbedding(EMBEDDING_MODEL, this.embeddingText);
-    }
-
-    async _generateOpenAIEmbedding(): Promise<number[]> {
-        let encoder = TikToken.encodingForModel("text-embedding-ada-002")
-        let encoding = encoder.encode(this.embeddingText);
-
-        // Split the token encoding into chunks of 2000 tokens each
-        // (~the maximum number of tokens that can be embedded in a single request)
-        let tokensToEmbed: number[][] = [];
-        for (let i = 0; i < encoding.length; i += MAX_TOKENS_PER_REQUEST) {
-            tokensToEmbed.push(encoding.slice(i, i + MAX_TOKENS_PER_REQUEST));
-        }
-
-        // Encode each token chunk separately
-        this._log.info(`Will embed text ${encoding.length} tokens in ${tokensToEmbed.length} requests...`);
-        let response = await openai.createEmbedding({
-            model: EMBEDDING_MODEL,
-            input: tokensToEmbed
-        });
-
-        UsageMonitor.addTokens(EMBEDDING_MODEL, response.data.usage.total_tokens);
-        let embeddings = response.data.data.map((x) => x.embedding);
-
-        if (!equalSizes(embeddings)) {
-            this._log.error(`Embeddings have different sizes!`);
-        }
-
-        // Combine the embeddings of the different parts of the document into
-        // a single embedding by summing them
-        return combineEmbeddings(embeddings);
     }
 
     private _extractData(diavgeiaDecisionObj: { [key: string]: any }) {

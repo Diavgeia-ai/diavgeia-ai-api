@@ -33,7 +33,6 @@
     "pdfjs-dist": "^3.5.141",
     "pdfjs-dist-legacy": "^1.0.1",
     "pg": "^8.10.0",
-    "tiktoken-node": "^0.0.5",
     "tsne-js": "^1.0.3",
     "yargs": "^17.7.1"
   },

@@ -31,7 +31,6 @@ abstract class Task {
     protected abstract run(params: object): Promise<void>;
 
     constructor(type: TaskType, implementation: string, name: string) {
-        console.log("test");
         this.type = type;
         this.implementation = implementation;
         this.name = name;
@@ -40,7 +39,7 @@ abstract class Task {
         this.db = new Pool({
             host: "db",
             port: parseInt(process.env.POSTGRES_PORT as string),
-            database: process.env.POSTGRES_DB || "diavgeia",
+            database: process.env.POSTGRES_DB,
             user: process.env.POSTGRES_USER,
             password: process.env.POSTGRES_PASSWORD
         });
