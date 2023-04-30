@@ -1,3 +1,5 @@
+CREATE EXTENSION vector;
+
 CREATE TABLE tasks (
   id SERIAL PRIMARY KEY,
   type TEXT NOT NULL,

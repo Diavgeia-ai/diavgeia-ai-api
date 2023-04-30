@@ -90,6 +90,42 @@ let main = async () => {
         await textExtractor.start({ ingestorTaskId });
       }
     )
+    .command(
+      'embed',
+      'Create embeddings for decisions',
+      (yargs) => {
+        return yargs
+          .option('impl', {
+            type: 'string',
+            description: 'Implementation of the embedder',
+            demandOption: true,
+          })
+          .option('name', {
+            type: 'string',
+            description: 'Human-friendly name for this task run',
+            demandOption: true,
+          })
+          .option('textExtractorTaskId', {
+            type: 'string',
+            description: 'Task ID of the text extractor task to extract text from',
+            demandOption: true,
+          });
+      },
+      async (argv) => {
+        const { impl, name, textExtractorTaskId } = argv;
+        const embedderCreatorPromise = await import('./tasks/embedders/embedders');
+        const embedders = await embedderCreatorPromise.default;
+
+        const embedderConstructor = embedders[impl as keyof typeof embedders];
+        if (!embedderConstructor) {
+          throw new Error(`Embedder implementation not found: ${impl}. Available implementations: ${Object.keys(embedders)}`);
+        }
+
+        const embedder = embedderConstructor.create(name);
+
+        await embedder.start({ textExtractorTaskId });
+      }
+    )
     .demandCommand(1, 'You need to specify a command')
     .strict()
     .help()

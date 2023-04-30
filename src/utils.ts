@@ -1,4 +1,4 @@
-import {PromisePool} from "@supercharge/promise-pool";
+import { PromisePool } from "@supercharge/promise-pool";
 import { ChromaClient } from 'chromadb';
 import Logger from './logger';
 import { OpenAIApi, Configuration } from "openai";
@@ -6,6 +6,7 @@ import { Collection } from 'chromadb';
 import dotenv from 'dotenv';
 import { ModelName } from './types';
 import Cohere from "cohere-ai";
+import UsageMonitor from "./UsageMonitor";
 
 dotenv.config();
 const logger = new Logger();
@@ -16,25 +17,25 @@ export type DiavgeiaQuery = {
     issueDate: [string, string]
 }
 
-export const stringEncodeDiavgeiaQuery = (diavgeiaQuery : DiavgeiaQuery) => {
+export const stringEncodeDiavgeiaQuery = (diavgeiaQuery: DiavgeiaQuery) => {
     return `decisionTypeUid:[${diavgeiaQuery.decisionTypeUid.map((x) => `"${x}"`).join(", ")}] AND issueDate:[${diavgeiaQuery.issueDate.map((x) => `${x}`).join(" TO ")}]`;
 }
 
-export const diavgeiaSearchQuery = (diavgeiaQuery : DiavgeiaQuery, page : number, size : number) => {
+export const diavgeiaSearchQuery = (diavgeiaQuery: DiavgeiaQuery, page: number, size: number) => {
     return `https://diavgeia.gov.gr/opendata/search/advanced.json?q=${stringEncodeDiavgeiaQuery(diavgeiaQuery)}&page=${page}&size=${size}`;
 }
 
-export const equalSizes = (embedings : number[][]) => {
+export const equalSizes = (embedings: number[][]) => {
     let sizes = embedings.map((x) => x.length);
     return sizes.every((x) => x === sizes[0]);
 }
 
-export const combineEmbeddings = (embedings : number[][]) => {
+export const combineEmbeddings = (embedings: number[][]) => {
     if (!equalSizes(embedings)) {
         throw new Error("Embeddings must have the same size");
     }
 
-    let combinedEmbedding : number[] = [];
+    let combinedEmbedding: number[] = [];
     for (let i = 0; i < embedings[0].length; i++) {
         combinedEmbedding.push(embedings.map((x) => x[i]).reduce((a, b) => a + b, 0));
     }
@@ -42,12 +43,12 @@ export const combineEmbeddings = (embedings : number[][]) => {
     return combinedEmbedding;
 }
 
-export const sleep = (ms : number) => {
+export const sleep = (ms: number) => {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export async function doWithPooling<A, B> (elems : A[], func : ((x : A) => Promise<B>), concurrency = 5) : Promise<B[]> {
-    let {results, errors} = await PromisePool
+export async function doWithPooling<A, B>(elems: A[], func: ((x: A) => Promise<B>), concurrency = 5): Promise<B[]> {
+    let { results, errors } = await PromisePool
         .withConcurrency(concurrency)
         .for(elems)
         .useCorrespondingResults()
@@ -62,12 +63,12 @@ export async function doWithPooling<A, B> (elems : A[], func : ((x : A) => Promi
     return results;
 }
 
-export const getOrCreateChromaCollection = async (collectionName : string) : Promise<Collection> => {
+export const getOrCreateChromaCollection = async (collectionName: string): Promise<Collection> => {
     let client = new ChromaClient();
     let collections = await client.listCollections();
-    
+
     let collection;
-    if (collections.map((c : any) => c.name).filter((n : string) => n === collectionName).length === 0) {
+    if (collections.map((c: any) => c.name).filter((n: string) => n === collectionName).length === 0) {
         logger.info(`Creating collection ${collectionName}`);
         collection = await client.createCollection(collectionName);
     } else {
@@ -78,7 +79,7 @@ export const getOrCreateChromaCollection = async (collectionName : string) : Pro
     return collection;
 }
 
-export const deleteCollection = async (collectionName : string) => {
+export const deleteCollection = async (collectionName: string) => {
     let client = new ChromaClient();
     await client.deleteCollection(collectionName);
 }
@@ -90,7 +91,7 @@ export const getOpenAIClient = () => {
     return new OpenAIApi(configuration);
 }
 
-export const generateCohereEmbedding = async (model : ModelName, text : string) => {
+export const generateCohereEmbedding = async (model: ModelName, text: string) => {
     let embedResponse;
     try {
         embedResponse = await Cohere.embed({
@@ -98,14 +99,17 @@ export const generateCohereEmbedding = async (model : ModelName, text : string) 
             model,
             truncate: "END"
         });
-    } catch (e) {   
+    } catch (e) {
         console.log(e);
         throw e;
+    } finally {
+        UsageMonitor.addCost(0.0001);
     }
+
     return embedResponse.body.embeddings[0];
 }
 
-export const isWhitespace = (str : string) => {
+export const isWhitespace = (str: string) => {
     return str === "" || /^\s*$/.test(str);
 }
 

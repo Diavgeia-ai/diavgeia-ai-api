@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  postgres:
+    build: sql/.
+    image: diavgeia-db:latest
+    container_name: diavgeia-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
