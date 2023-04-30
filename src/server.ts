@@ -1,11 +1,11 @@
 import express from 'express';
-import { generateCohereEmbedding, getOpenAIClient, getOrCreateChromaCollection } from './src/utils';
+import { generateCohereEmbedding, getOpenAIClient, getOrCreateChromaCollection } from './utils';
 import { Collection } from 'chromadb';
-import { generateChromaQuery } from './src/generateQuery';
+import { generateChromaQuery } from './generateQuery';
 //@ts-expect-error no types
 import throttle from 'express-throttle';
 import { Response } from 'express';
-import { ValueWithCost } from './src/types';
+import { ValueWithCost } from './types';
 import apicache from 'apicache';
 import { GetEmbeddingIncludeEnum } from 'chromadb/dist/main/generated';
 
