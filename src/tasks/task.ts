@@ -36,7 +36,11 @@ abstract class Task {
 
         this.logger = new Logger(implementation);
         this.db = new Pool({
-            connectionString: process.env.DATABASE_URL
+            host: process.env.POSTGRES_HOST,
+            port: parseInt(process.env.POSTGRES_PORT as string),
+            database: process.env.POSTGRES_DB,
+            user: process.env.POSTGRES_USER,
+            password: process.env.POSTGRES_PASSWORD
         });
     }
 
