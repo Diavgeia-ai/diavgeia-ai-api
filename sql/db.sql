@@ -43,7 +43,7 @@ CREATE TABLE embeddings (
   text_id INTEGER REFERENCES texts(id) ON DELETE CASCADE,
   embedder_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
   embedding_seq INTEGER NOT NULL,
-  embedding FLOAT[] NOT NULL,
+  embedding vector(768) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT now(),
   updated_at TIMESTAMP NOT NULL DEFAULT now()
 );
