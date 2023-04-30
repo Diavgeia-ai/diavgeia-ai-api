@@ -10,11 +10,11 @@ import apicache from 'apicache';
 import { GetEmbeddingIncludeEnum } from 'chromadb/dist/main/generated';
 
 const app = express();
-var decisions : Collection;
+var decisions: Collection;
 const EMBEDDING_MODEL = "multilingual-22-12";
 const DEFAULT_RESULT_COUNT = 25;
 
-let getQueryEmbedding = async (query : string) : Promise<ValueWithCost<number[]>> => {
+let getQueryEmbedding = async (query: string): Promise<ValueWithCost<number[]>> => {
     return {
         value: await generateCohereEmbedding(EMBEDDING_MODEL, query),
         cost: 1 / 1000
@@ -24,12 +24,12 @@ let getQueryEmbedding = async (query : string) : Promise<ValueWithCost<number[]>
 let throttling = {
     "rate": "30/m",
     "key": () => "everyone",
-    "on_throttled": (_ : any, res : Response) => {
-        res.status(503).send({"error": "System is overloaded, please try again later"});
+    "on_throttled": (_: any, res: Response) => {
+        res.status(503).send({ "error": "System is overloaded, please try again later" });
     }
 };
 
-let getEmbeddings = async (decisions : Collection, ids : string[]) : Promise<number[][]> => {
+let getEmbeddings = async (decisions: Collection, ids: string[]): Promise<number[][]> => {
     let response = await decisions.get(ids, undefined, undefined, undefined, [GetEmbeddingIncludeEnum.Embeddings]);
     let embeddings = response.embeddings;
 
@@ -49,7 +49,7 @@ let getEmbeddings = async (decisions : Collection, ids : string[]) : Promise<num
 
 let cache = apicache.options({
     defaultDuration: '1 hour',
-    statusCodes: {include: [200]}
+    statusCodes: { include: [200] }
 }).middleware
 
 const emptyResponse = {
@@ -79,21 +79,21 @@ app.get('/search', cache(), throttle(throttling), async (req, res) => {
         return;
     }
 
-    let queryToEmbed : string;
-    let whereObj : {[key: string]: any} | undefined;
+    let queryToEmbed: string;
+    let whereObj: { [key: string]: any } | undefined;
     try {
-        let {cost, value} = await generateChromaQuery(query);
+        let { cost, value } = await generateChromaQuery(query);
         [queryToEmbed, whereObj] = value;
         searchCost += cost;
     } catch (e) {
-        res.status(500).send({"error": "Failed to generate query"});
+        res.status(500).send({ "error": "Failed to generate query" });
         return;
     }
 
-    const {cost, value: embedding} = await getQueryEmbedding(queryToEmbed);
+    const { cost, value: embedding } = await getQueryEmbedding(queryToEmbed);
     searchCost += cost;
     // decisionType is always "Δ.1" for the demo
-    let whereDecisionType = whereObj.decisionType; 
+    let whereDecisionType = whereObj.decisionType;
     delete whereObj.decisionType;
 
     let where = whereObj;
@@ -109,7 +109,7 @@ app.get('/search', cache(), throttle(throttling), async (req, res) => {
             response = emptyResponse;
         } else {
             console.log(response);
-            res.status(500).send({"error": "Failed to query"});
+            res.status(500).send({ "error": "Failed to query" });
             return;
         }
     }
@@ -142,16 +142,16 @@ app.get('/search', cache(), throttle(throttling), async (req, res) => {
 
 app.get('/embeddings', async (req, res) => {
     //@ts-ignore
-    let idsString : string = req.query.ids;
+    let idsString: string = req.query.ids;
     let ids = idsString.split(",");
 
     if (ids === undefined) {
-        res.status(400).send({"error": "Missing ids"});
+        res.status(400).send({ "error": "Missing ids" });
         return;
     }
 
     if (!Array.isArray(ids)) {
-        res.status(400).send({"error": "Ids must be an array"});
+        res.status(400).send({ "error": "Ids must be an array" });
         return;
     }
 
@@ -178,10 +178,10 @@ app.get('/embed', async (req, res) => {
     }
 
     try {
-        var {cost, value} = await getQueryEmbedding(query as string);
+        var { cost, value } = await getQueryEmbedding(query as string);
     } catch (e) {
         console.log(e);
-        res.status(500).send({"error": "Failed to generate query"});
+        res.status(500).send({ "error": "Failed to generate query" });
         return;
     }
 
@@ -194,7 +194,6 @@ app.get('/embed', async (req, res) => {
 
 
 const start = async () => {
-    decisions = await getOrCreateChromaCollection(process.env.CHROMA_COLLECTION!);
     let port = process.env.API_PORT || 3000;
     app.listen(port, () => {
         console.log(`Server started on port ${port}`);
