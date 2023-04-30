@@ -1,6 +1,7 @@
-import { Pool } from "pg";
+import { Pool, PoolClient } from "pg";
 import Logger from "../logger";
 import path from 'path';
+import { options } from "yargs";
 
 interface TaskFilter {
     type?: string;
@@ -41,7 +42,7 @@ abstract class Task {
             port: parseInt(process.env.POSTGRES_PORT as string),
             database: process.env.POSTGRES_DB,
             user: process.env.POSTGRES_USER,
-            password: process.env.POSTGRES_PASSWORD
+            password: process.env.POSTGRES_PASSWORD,
         });
     }
 
@@ -50,10 +51,14 @@ abstract class Task {
         if (version) {
             this.version = version;
         } else {
+            console.log("getting next v");
             this.version = await this.getNextVersion();
+            console.log("got next v");
         }
 
+        console.log("getting task");
         const existingTask = await this.count({ type: this.type, implementation: this.implementation, name: this.name, version: this.version });
+        console.log("got task");
         if (existingTask > 0) {
             throw new Error(`A task with the same name and version already exists: ${this.identifier()}}`);
         }
@@ -62,7 +67,9 @@ abstract class Task {
         this.createdAt = new Date();
         this.updatedAt = new Date();
 
+        console.log("saving");
         await this.save();
+        console.log("saved");
         this.logger.info(`Started task ${this.identifier()}`);
         this.logger.info(`Params: ${JSON.stringify(params)}`);
 
@@ -134,6 +141,20 @@ abstract class Task {
         this.id = result.rows[0].id;
 
         this.logger.debug(`Saved task ${this.identifier()} with id ${this.id}`);
+    }
+
+    public async getLastTaskId(type: TaskType): Promise<number> {
+        const result = await this.db.query(
+            'SELECT MAX(id) FROM tasks WHERE type = $1',
+            [type]
+        );
+
+        const maxId = result.rows[0].max;
+        if (maxId === null) {
+            return 1;
+        }
+
+        return maxId;
     }
 }
 

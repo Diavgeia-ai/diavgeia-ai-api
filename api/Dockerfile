@@ -11,7 +11,11 @@ RUN npm install
 # Copy the rest of the application code into the container
 COPY . .
 
+# Run the build process and fail the build if there are errors
+RUN npm run build
+
 # Expose the port your application will run on
 EXPOSE 3000
 
-CMD ["sh", "-c", "npm run build && npm run forever"]
+# Run the application using npm run forever
+CMD ["npm", "run", "forever"]

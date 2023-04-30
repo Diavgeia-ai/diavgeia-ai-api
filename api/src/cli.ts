@@ -72,12 +72,12 @@ let main = async () => {
           })
           .option('ingestorTaskId', {
             type: 'string',
-            description: 'Task ID of the ingestor task to extract text from',
-            demandOption: true,
+            description: 'Task ID of the ingestor task to extract text from (defaults to the last ingestor task)',
+            optional: true
           });
       },
       async (argv) => {
-        const { impl, name, ingestorTaskId } = argv;
+        var { impl, name, ingestorTaskId } = argv;
         const textExtractorCreatorPromise = await import('./tasks/textExtractors/textExtractors');
         const textExtractors = await textExtractorCreatorPromise.default;
 
@@ -87,6 +87,9 @@ let main = async () => {
         }
 
         const textExtractor = textExtractorConstructor.create(name);
+        if (!ingestorTaskId) {
+          ingestorTaskId = (await textExtractor.getLastTaskId('ingestor')).toString();
+        }
 
         await textExtractor.start({ ingestorTaskId });
       }
@@ -109,11 +112,11 @@ let main = async () => {
           .option('textExtractorTaskId', {
             type: 'string',
             description: 'Task ID of the text extractor task to extract text from',
-            demandOption: true,
+            optional: true
           });
       },
       async (argv) => {
-        const { impl, name, textExtractorTaskId } = argv;
+        var { impl, name, textExtractorTaskId } = argv;
         const embedderCreatorPromise = await import('./tasks/embedders/embedders');
         const embedders = await embedderCreatorPromise.default;
 
@@ -123,6 +126,9 @@ let main = async () => {
         }
 
         const embedder = embedderConstructor.create(name);
+        if (!textExtractorTaskId) {
+          textExtractorTaskId = (await embedder.getLastTaskId('text-extractor')).toString();
+        }
 
         await embedder.start({ textExtractorTaskId });
       }
