@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  postgres:
+  db:
     build: sql/.
     image: diavgeia-db:latest
     container_name: diavgeia-db
@@ -11,6 +11,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5431:5432"
 
 volumes:
   pgdata:
