@@ -14,5 +14,4 @@ COPY . .
 # Expose the port your application will run on
 EXPOSE 3000
 
-CMD ["npm", "run", "build"]
-CMD ["npm", "run", "start"]
+CMD ["sh", "-c", "npm run build && npm run forever"]
