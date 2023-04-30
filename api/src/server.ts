@@ -8,6 +8,11 @@ import { Response } from 'express';
 import { ValueWithCost } from './types';
 import apicache from 'apicache';
 import { GetEmbeddingIncludeEnum } from 'chromadb/dist/main/generated';
+import path from 'path';
+import dotenv from 'dotenv';
+
+//TODO: fix this
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 
 const app = express();
 var decisions: Collection;
@@ -194,7 +199,7 @@ app.get('/embed', async (req, res) => {
 
 
 const start = async () => {
-    let port = process.env.API_PORT || 3000;
+    let port = 3000;
     app.listen(port, () => {
         console.log(`Server started on port ${port}`);
     });

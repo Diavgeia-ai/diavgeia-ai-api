@@ -3,7 +3,7 @@ import env from 'dotenv';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
-env.config();
+env.config({ path: path.resolve(__dirname, '../../.env') });
 
 let main = async () => {
   const argv = await yargs(hideBin(process.argv))

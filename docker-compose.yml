@@ -1,8 +1,16 @@
 version: '3.8'
 
 services:
+  api:
+    build: api/.
+    image: diavgeia-api:latest
+    container_name: diavgeia-api
+    env_file:
+      - .env
+    depends_on:
+      - db
   db:
-    build: sql/.
+    build: db/.
     image: diavgeia-db:latest
     container_name: diavgeia-db
     environment:
@@ -12,7 +20,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5431:5432"
+      - "${POSTGRES_PORT}:5432"
 
 volumes:
   pgdata:

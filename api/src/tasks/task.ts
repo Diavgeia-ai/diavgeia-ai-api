@@ -1,5 +1,6 @@
 import { Pool } from "pg";
 import Logger from "../logger";
+import path from 'path';
 
 interface TaskFilter {
     type?: string;
@@ -30,15 +31,16 @@ abstract class Task {
     protected abstract run(params: object): Promise<void>;
 
     constructor(type: TaskType, implementation: string, name: string) {
+        console.log("test");
         this.type = type;
         this.implementation = implementation;
         this.name = name;
 
         this.logger = new Logger(implementation);
         this.db = new Pool({
-            host: process.env.POSTGRES_HOST,
+            host: "db",
             port: parseInt(process.env.POSTGRES_PORT as string),
-            database: process.env.POSTGRES_DB,
+            database: process.env.POSTGRES_DB || "diavgeia",
             user: process.env.POSTGRES_USER,
             password: process.env.POSTGRES_PASSWORD
         });
