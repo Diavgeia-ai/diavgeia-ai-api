@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "cli": "node dist/cli.js",
-    "build": "rimraf ./dist && tsc && cp ../.env ./dist/.env",
+    "build": "rimraf ./dist && tsc",
     "start": "node dist/server.js",
     "forever": "forever dist/server.js"
   },

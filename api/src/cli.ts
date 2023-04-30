@@ -2,6 +2,7 @@ import Logger from './logger';
 import env from 'dotenv';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
+import path from 'path';
 
 env.config({ path: path.resolve(__dirname, '../../.env') });
 
