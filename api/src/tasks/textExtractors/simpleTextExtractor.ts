@@ -32,7 +32,6 @@ class SimpleTextExtractor extends TextExtractor {
             throw new Error(`Ingestor task with id ${params.ingestorTaskId} not found`);
         }
 
-        await this.db.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
         for (let offset = 0; true; offset += BATCH_SIZE) {
             let inputDocuments = await this.db.query('SELECT id, metadata FROM decisions WHERE ingestor_task_id = $1 ORDER BY id LIMIT $2 OFFSET $3', [params.ingestorTaskId, BATCH_SIZE, offset]);
             if (inputDocuments.rows.length === 0) {
@@ -55,7 +54,6 @@ class SimpleTextExtractor extends TextExtractor {
             console.log(`Processed ${offset + texts.length} documents`);
             this.updateMetrics({ documents_processed: offset + texts.length });
         }
-        await this.db.query('COMMIT');
 
         this.logger.debug('Finished simple text extractor');
     }

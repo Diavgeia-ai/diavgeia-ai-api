@@ -8,8 +8,8 @@ const ENABLED_EMBEDDERS = [
 async function createEmbedders() {
     const embedders: { [key: string]: TaskConstructor } = {};
 
-    for (const textExtractor of ENABLED_EMBEDDERS) {
-        const module = (await import(`./${textExtractor}`)).default;
+    for (const embedder of ENABLED_EMBEDDERS) {
+        const module = (await import(`./${embedder}`)).default;
         let [implementation, classConstructor] = module;
         embedders[implementation] = new class implements TaskConstructor {
             create(name: string): Embedder {

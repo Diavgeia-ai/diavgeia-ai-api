@@ -2,6 +2,8 @@ import { Pool, PoolClient } from "pg";
 import Logger from "../logger";
 import path from 'path';
 import { options } from "yargs";
+//@ts-ignore
+import pgvector from 'pgvector/pg';
 
 interface TaskFilter {
     type?: string;
@@ -12,7 +14,7 @@ interface TaskFilter {
 }
 
 type TaskStatus = 'running' | 'succeeded' | 'failed';
-type TaskType = 'ingestor' | 'text-extractor' | 'embedder' | 'reducer';
+type TaskType = 'ingestor' | 'text-extractor' | 'embedder' | 'dimensionality-reducer';
 
 abstract class Task {
     // Common properties and methods for all tasks
@@ -155,6 +157,12 @@ abstract class Task {
         }
 
         return maxId;
+    }
+
+    protected async getPgVectorAwareDbClient(): Promise<PoolClient> {
+        let client = await this.db.connect();
+        await pgvector.registerType(client);
+        return client;
     }
 }
 

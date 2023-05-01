@@ -55,3 +55,5 @@ CREATE TABLE semantic_points (
   x FLOAT NOT NULL,
   y FLOAT NOT NULL
 );
+
+ALTER TABLE semantic_points RENAME COLUMN reductor_task_id TO dimensionality_reducer_task_id;

@@ -133,6 +133,45 @@ let main = async () => {
         await embedder.start({ textExtractorTaskId });
       }
     )
+    .command(
+      'dimensionality-reduction',
+      'Reduce the dimensionality of the embeddings to 2D semantic points',
+      (yargs) => {
+        return yargs
+          .option('impl', {
+            type: 'string',
+            description: 'Implementation of the dimensionality reducer',
+            demandOption: true,
+          })
+          .option('name', {
+            type: 'string',
+            description: 'Human-friendly name for this task run',
+            demandOption: true,
+          })
+          .option('embedderTaskId', {
+            type: 'string',
+            description: 'Task ID of the embedder task to reduce the dimensionality of',
+            optional: true
+          });
+      },
+      async (argv) => {
+        var { impl, name, embedderTaskId } = argv;
+        const dimensionalityReducerCreatorPromise = await import('./tasks/dimensionalityReducers/dimensionalityReducers');
+        const dimensionalityReducers = await dimensionalityReducerCreatorPromise.default;
+
+        const dimensionalityReducerConstructor = dimensionalityReducers[impl as keyof typeof dimensionalityReducers];
+        if (!dimensionalityReducerConstructor) {
+          throw new Error(`Dimensionality reducer implementation not found: ${impl}. Available implementations: ${Object.keys(dimensionalityReducers)}`);
+        }
+
+        const dimensionalityReducer = dimensionalityReducerConstructor.create(name);
+        if (!embedderTaskId) {
+          embedderTaskId = (await dimensionalityReducer.getLastTaskId('embedder')).toString();
+        }
+
+        await dimensionalityReducer.start({ embedderTaskId });
+      }
+    )
     .demandCommand(1, 'You need to specify a command')
     .strict()
     .help()

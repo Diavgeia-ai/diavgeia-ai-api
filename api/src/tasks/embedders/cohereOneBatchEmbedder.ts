@@ -27,11 +27,10 @@ class CohereOneBatchEmbedder extends Embedder {
             throw new Error(`Missing required params: ${REQUIRED_PARAMS.join(', ')}`);
         }
         if (!this.getTaskById(params.textExtractorTaskId)) {
-            throw new Error(`Embedder with id ${params.textExtractorTaskId} not found`);
+            throw new Error(`Text extractor with id ${params.textExtractorTaskId} not found`);
         }
 
         let failures = 0;
-        await this.db.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
         for (let offset = 0; true; offset += BATCH_SIZE) {
             let inputDocuments = await this.db.query('SELECT t.id, text, d.metadata AS decision_metadata FROM texts AS t LEFT JOIN decisions AS d ON d.id = t.decision_id WHERE text_extractor_task_id = $1  ORDER BY id LIMIT $2 OFFSET $3', [params.textExtractorTaskId, BATCH_SIZE, offset]);
             if (inputDocuments.rows.length === 0) {
@@ -62,7 +61,6 @@ class CohereOneBatchEmbedder extends Embedder {
             this.updateMetrics({ texts_processed: offset + embeddings.length, failures: failures });
             await sleep(SLEEP_AFTER_BATCH_SEC * 1000); // stupid cohere rate limiting
         }
-        await this.db.query('COMMIT');
 
         this.logger.debug('Finished cohere one batch embedder');
     }
