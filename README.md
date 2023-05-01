@@ -7,7 +7,7 @@
 ```bash
 cp .env.sample .env && vi .env
 ```
-2. **Start the api server**:
+2. **Start the api and database**:
 ```
 docker compose up --build -d
 ```
