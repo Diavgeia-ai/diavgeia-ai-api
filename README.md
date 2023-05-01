@@ -1,10 +1,8 @@
 # Diavgeia.ai Backend
 
-## Get started
-Follow the below steps to run the api and ingest some data:
+## Contribute
 
-
-## Get started
+### Get started
 1. **Set up your .env file**: You'll need API keys for OpenAI and CohereAI.
 ```bash
 cp .env.sample .env && vi .env
@@ -20,7 +18,7 @@ You can optionally check that both `diavgeia-db` and `diavgeia-api` are up and r
 docker compose exec api run cli -- pipeline --name jan23-10d  --startDate 2023-01-01 --endDate 2023-01-10 --decisionTypes Δ.1
 ```
 
-## The data pipeline step by step
+### The data pipeline step by step
 
 The data pipeline is split into ingestion, text extraction, embedding creation and dimensionality reduction. These are background tasks that run and depend on each other. A view configuration is a virtual table (PostgreSQL view) with references to a run of each of the four steps, and contains the data produced by the specific pipeline. You can experiment and work on different pipelines at the same time and easily switch between by changing the view configuration you're using to access the resulting data.
 
@@ -43,3 +41,7 @@ docker compose exec api run cli -- embed --impl cohere-one-batch-embedder --name
 ```bash
 docker compose exec api run cli -- dimensionality-reduction --name jan23-10d-red --impl umap-dimensionality-reducer
 ```
+
+### Write a component
+
+Pipeline components live under `api/src/tasks/`.
