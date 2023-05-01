@@ -4,6 +4,7 @@ import path from 'path';
 import { options } from "yargs";
 //@ts-ignore
 import pgvector from 'pgvector/pg';
+import { getDbPool } from "../db";
 
 interface TaskFilter {
     type?: string;
@@ -39,28 +40,18 @@ abstract class Task {
         this.name = name;
 
         this.logger = new Logger(implementation);
-        this.db = new Pool({
-            host: "db",
-            port: parseInt(process.env.POSTGRES_PORT as string),
-            database: process.env.POSTGRES_DB,
-            user: process.env.POSTGRES_USER,
-            password: process.env.POSTGRES_PASSWORD,
-        });
+        this.db = getDbPool();
     }
 
-    public async start(params: object, version?: number): Promise<void> {
+    public async start(params: object, version?: number): Promise<string> {
         this.params = params;
         if (version) {
             this.version = version;
         } else {
-            console.log("getting next v");
             this.version = await this.getNextVersion();
-            console.log("got next v");
         }
 
-        console.log("getting task");
         const existingTask = await this.count({ type: this.type, implementation: this.implementation, name: this.name, version: this.version });
-        console.log("got task");
         if (existingTask > 0) {
             throw new Error(`A task with the same name and version already exists: ${this.identifier()}}`);
         }
@@ -69,9 +60,7 @@ abstract class Task {
         this.createdAt = new Date();
         this.updatedAt = new Date();
 
-        console.log("saving");
         await this.save();
-        console.log("saved");
         this.logger.info(`Started task ${this.identifier()}`);
         this.logger.info(`Params: ${JSON.stringify(params)}`);
 
@@ -88,6 +77,8 @@ abstract class Task {
             await this.save();
             if (err) throw err;
         }
+
+        return this.id as unknown as string;
     }
 
     protected async updateMetrics(metrics: object) {

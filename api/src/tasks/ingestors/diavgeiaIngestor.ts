@@ -4,7 +4,7 @@ import Task from '../task';
 import Logger from '../../logger';
 import dotenv from 'dotenv';
 import { DiavgeiaQuery, diavgeiaSearchQuery, sleep } from '../../utils';
-import Decision from '../../decision';
+import { Decision } from './decision';
 import axios from 'axios';
 
 dotenv.config();
@@ -36,7 +36,6 @@ class DiavgeiaIngestor extends Ingestor {
         };
 
         let total = await this.getTotalDecisionCount(diavgeiaQuery);
-        let page = 0;
         this.logger.info(`${total} total decision for query`);
 
         for (let page = 0; true; page++) {
@@ -59,19 +58,6 @@ class DiavgeiaIngestor extends Ingestor {
         this.logger.debug('Finished Diavgeia ingestor');
     }
 
-    private async saveDecisions(decisions: Decision[]) {
-        this.logger.info(`Saving ${decisions.length} decisions...`);
-        await this.db.query('START TRANSACTION');
-        for (let decision of decisions) {
-            await this.db.query('INSERT INTO decisions (ingestor_task_id, ada, document_url, metadata) VALUES ($1, $2, $3, $4)', [
-                this.id,
-                decision.ada,
-                decision.documentUrl,
-                decision.metadata,
-            ]);
-        }
-        await this.db.query('COMMIT');
-    }
 
     private async fetchDiavgeiaPage(diavgeiaQuery: DiavgeiaQuery, page: number, pageSize = 500): Promise<Decision[]> {
         let query = diavgeiaSearchQuery(diavgeiaQuery, page, pageSize);
@@ -79,9 +65,61 @@ class DiavgeiaIngestor extends Ingestor {
         let response = await axios.get(query, {});
 
         let data = response.data;
-        let decisions = data.decisions.map((d: {}) => new Decision(d));
+        let decisions = data.decisions.map(this.extractData.bind(this));
 
         return decisions;
+    }
+
+    private extractData(diavgeiaDecisionObj: { [key: string]: any }): Decision {
+        let {
+            protocolNumber,
+            subject,
+            issueDate,
+            organizationId,
+            signerIds,
+            unitIds,
+            decisionTypeId,
+            thematicCategoryIds,
+            ada,
+            publishTimestamp,
+            submissionTimestamp,
+            documentUrl
+        } = diavgeiaDecisionObj;
+
+        let {
+            financialYear,
+            budgetType,
+            amountWithVAT,
+            amountWithKae
+        } = diavgeiaDecisionObj.extraFieldValues;
+
+        if (!documentUrl) {
+            documentUrl = `https://diavgeia.gov.gr/doc/${ada}`;
+        }
+
+        let metadata = {
+            protocolNumber,
+            subject,
+            issueDate,
+            organizationId,
+            signerIds,
+            unitIds,
+            decisionTypeId,
+            thematicCategoryIds,
+            ada,
+            publishTimestamp,
+            submissionTimestamp,
+            financialYear,
+            budgetType,
+            amountWithVAT,
+            amountWithKae
+        };
+
+        return {
+            ada,
+            documentUrl,
+            metadata
+        };
     }
 
     private async getTotalDecisionCount(diavgeiaQuery: DiavgeiaQuery) {

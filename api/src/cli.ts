@@ -3,10 +3,50 @@ import env from 'dotenv';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import path from 'path';
+import TaskConstructor from './tasks/taskConstructor';
+import { createViewConfiguration, getDbPool } from './db';
 
 env.config({ path: path.resolve(__dirname, '../../.env') });
 
 let main = async () => {
+  const ingestorCreatorPromise = await import('./tasks/ingestors/ingestors');
+  const textExtractorCreatorPromise = await import('./tasks/textExtractors/textExtractors');
+  const embedderCreatorPromise = await import('./tasks/embedders/embedders');
+  const dimensionalityReducerCreatorPromise = await import('./tasks/dimensionalityReducers/dimensionalityReducers');
+
+  const ingestors = await ingestorCreatorPromise.default;
+  const textExtractors = await textExtractorCreatorPromise.default;
+  const embedders = await embedderCreatorPromise.default;
+  const dimensionalityReducers = await dimensionalityReducerCreatorPromise.default;
+
+
+  let getTaskImplementation = (type: 'ingestor' | 'text-extractor' | 'embedder' | 'dimensionality-reducer', implementation: string): TaskConstructor => {
+    var implementations;
+    switch (type) {
+      case 'ingestor':
+        implementations = ingestors;
+        break;
+      case 'text-extractor':
+        implementations = textExtractors;
+        break;
+      case 'embedder':
+        implementations = embedders;
+        break;
+      case 'dimensionality-reducer':
+        implementations = dimensionalityReducers;
+        break;
+    }
+
+    let impl = implementations[implementation as keyof typeof implementations];
+
+    if (!impl) {
+      throw new Error(`${type} implementation not found: ${implementation}. Available implementations: ${Object.keys(implementations)}`);
+    }
+
+    return impl;
+  }
+
+
   const argv = await yargs(hideBin(process.argv))
     .usage('Usage: $0 <command> [options]')
     .command(
@@ -42,16 +82,9 @@ let main = async () => {
       },
       async (argv) => {
         const { impl, name, startDate, endDate, decisionTypes } = argv;
-        const ingestorCreatorPromise = await import('./tasks/ingestors/ingestors');
-        const ingestors = await ingestorCreatorPromise.default;
 
-        const ingestorConstructor = ingestors[impl as keyof typeof ingestors];
-        if (!ingestorConstructor) {
-          throw new Error(`Ingestor implementation not found: ${impl}. Available implementations: ${Object.keys(ingestors)}`);
-        }
-
+        const ingestorConstructor = getTaskImplementation('ingestor', impl);
         const ingestor = ingestorConstructor.create(name);
-
         await ingestor.start({ startDate, endDate, decisionTypes });
       }
     )
@@ -78,19 +111,9 @@ let main = async () => {
       },
       async (argv) => {
         var { impl, name, ingestorTaskId } = argv;
-        const textExtractorCreatorPromise = await import('./tasks/textExtractors/textExtractors');
-        const textExtractors = await textExtractorCreatorPromise.default;
 
-        const textExtractorConstructor = textExtractors[impl as keyof typeof textExtractors];
-        if (!textExtractorConstructor) {
-          throw new Error(`Text extractor implementation not found: ${impl}. Available implementations: ${Object.keys(textExtractors)}`);
-        }
-
+        const textExtractorConstructor = getTaskImplementation('text-extractor', impl);
         const textExtractor = textExtractorConstructor.create(name);
-        if (!ingestorTaskId) {
-          ingestorTaskId = (await textExtractor.getLastTaskId('ingestor')).toString();
-        }
-
         await textExtractor.start({ ingestorTaskId });
       }
     )
@@ -117,14 +140,8 @@ let main = async () => {
       },
       async (argv) => {
         var { impl, name, textExtractorTaskId } = argv;
-        const embedderCreatorPromise = await import('./tasks/embedders/embedders');
-        const embedders = await embedderCreatorPromise.default;
 
-        const embedderConstructor = embedders[impl as keyof typeof embedders];
-        if (!embedderConstructor) {
-          throw new Error(`Embedder implementation not found: ${impl}. Available implementations: ${Object.keys(embedders)}`);
-        }
-
+        const embedderConstructor = getTaskImplementation('embedder', impl);
         const embedder = embedderConstructor.create(name);
         if (!textExtractorTaskId) {
           textExtractorTaskId = (await embedder.getLastTaskId('text-extractor')).toString();
@@ -156,14 +173,8 @@ let main = async () => {
       },
       async (argv) => {
         var { impl, name, embedderTaskId } = argv;
-        const dimensionalityReducerCreatorPromise = await import('./tasks/dimensionalityReducers/dimensionalityReducers');
-        const dimensionalityReducers = await dimensionalityReducerCreatorPromise.default;
 
-        const dimensionalityReducerConstructor = dimensionalityReducers[impl as keyof typeof dimensionalityReducers];
-        if (!dimensionalityReducerConstructor) {
-          throw new Error(`Dimensionality reducer implementation not found: ${impl}. Available implementations: ${Object.keys(dimensionalityReducers)}`);
-        }
-
+        const dimensionalityReducerConstructor = getTaskImplementation('dimensionality-reducer', impl);
         const dimensionalityReducer = dimensionalityReducerConstructor.create(name);
         if (!embedderTaskId) {
           embedderTaskId = (await dimensionalityReducer.getLastTaskId('embedder')).toString();
@@ -171,6 +182,92 @@ let main = async () => {
 
         await dimensionalityReducer.start({ embedderTaskId });
       }
+    )
+    .command('pipeline',
+      'Run the entire pipeline',
+      (yargs) => {
+        return yargs
+          .option('name', {
+            type: 'string',
+            description: 'Human-friendly name for this task run',
+            demandOption: true,
+          })
+          .option('startDate', {
+            type: 'string',
+            description: 'Start date in the format YYYY-MM-DD',
+            demandOption: true,
+          })
+          .option('endDate', {
+            type: 'string',
+            description: 'End date (non-inclusive) in the format YYYY-MM-DD',
+            demandOption: true,
+          })
+          .option('decisionTypes', {
+            type: 'string',
+            description: 'Comma-separated list of decision types',
+            demandOption: true,
+          })
+          .option('ingestorImpl', {
+            type: 'string',
+            description: 'Implementation of the ingestor',
+            default: 'diavgeia-ingestor',
+            demandOption: true,
+          })
+          .option('textExtractorImpl', {
+            type: 'string',
+            description: 'Implementation of the text extractor',
+            default: 'simple-text-extractor',
+            demandOption: true,
+          })
+          .option('embedderImpl', {
+            type: 'string',
+            description: 'Implementation of the embedder',
+            default: 'cohere-one-batch-embedder',
+            demandOption: true,
+          })
+          .option('dimensionalityReducerImpl', {
+            type: 'string',
+            description: 'Implementation of the dimensionality reducer',
+            default: 'umap-dimensionality-reducer',
+            demandOption: true,
+          });
+      },
+      async (argv) => {
+        const { name, startDate, endDate, decisionTypes } = argv;
+        const { ingestorImpl, textExtractorImpl, embedderImpl, dimensionalityReducerImpl } = argv;
+        const ingestorConstructor = getTaskImplementation('ingestor', ingestorImpl);
+        const textExtractorConstructor = getTaskImplementation('text-extractor', textExtractorImpl);
+        const embedderConstructor = getTaskImplementation('embedder', embedderImpl);
+        const dimensionalityReducerConstructor = getTaskImplementation('dimensionality-reducer', dimensionalityReducerImpl);
+
+        let ingestorName = `${name}-ingestor`;
+        let textExtractorName = `${name}-text-extractor`;
+        let embedderName = `${name}-embedder`;
+        let dimensionalityReducerName = `${name}-dimensionality-reducer`;
+
+        const ingestor = ingestorConstructor.create(ingestorName);
+        let ingestorTaskId = await ingestor.start({ startDate, endDate, decisionTypes });
+
+        const textExtractor = textExtractorConstructor.create(textExtractorName);
+        let textExtractorTaskId = (await textExtractor.start({ ingestorTaskId }));
+
+        const embedder = embedderConstructor.create(embedderName);
+        let embedderTaskId = (await embedder.start({ textExtractorTaskId }));
+
+        const dimensionalityReducer = dimensionalityReducerConstructor.create(dimensionalityReducerName);
+        let dimensionalityReducerTaskId = await dimensionalityReducer.start({ embedderTaskId });
+
+        let viewId = await createViewConfiguration(getDbPool(), {
+          name,
+          ingestorTaskId: ingestorTaskId,
+          textExtractorTaskId: textExtractorTaskId,
+          embedderTaskId: embedderTaskId,
+          dimensionalityReducerTaskId: dimensionalityReducerTaskId
+        });
+
+        console.log(`View configuration created with ID ${viewId}`);
+      }
+
     )
     .demandCommand(1, 'You need to specify a command')
     .strict()

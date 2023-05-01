@@ -9,6 +9,8 @@ services:
       - .env
     depends_on:
       - db
+    ports:
+      - "${API_PORT}:3000"
   db:
     build: db/.
     image: diavgeia-db:latest

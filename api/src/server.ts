@@ -1,29 +1,31 @@
 import express from 'express';
-import { generateCohereEmbedding, getOpenAIClient, getOrCreateChromaCollection } from './utils';
-import { Collection } from 'chromadb';
+import { generateCohereEmbedding } from './utils';
 import { generateChromaQuery } from './generateQuery';
 //@ts-expect-error no types
 import throttle from 'express-throttle';
 import { Response } from 'express';
 import { ValueWithCost } from './types';
 import apicache from 'apicache';
-import { GetEmbeddingIncludeEnum } from 'chromadb/dist/main/generated';
 import path from 'path';
 import dotenv from 'dotenv';
+import { createViewConfiguration, getDbPool } from './db';
+//@ts-ignore
+import pgvector from 'pgvector/pg';
+import bodyParser from 'body-parser';
+
 
 //TODO: fix this
 dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 
-const app = express();
-var decisions: Collection;
 const EMBEDDING_MODEL = "multilingual-22-12";
 const DEFAULT_RESULT_COUNT = 25;
 
+const app = express();
+app.use(bodyParser.json());
+const db = getDbPool();
+
 let getQueryEmbedding = async (query: string): Promise<ValueWithCost<number[]>> => {
-    return {
-        value: await generateCohereEmbedding(EMBEDDING_MODEL, query),
-        cost: 1 / 1000
-    }
+    return generateCohereEmbedding(EMBEDDING_MODEL, query);
 };
 
 let throttling = {
@@ -33,24 +35,6 @@ let throttling = {
         res.status(503).send({ "error": "System is overloaded, please try again later" });
     }
 };
-
-let getEmbeddings = async (decisions: Collection, ids: string[]): Promise<number[][]> => {
-    let response = await decisions.get(ids, undefined, undefined, undefined, [GetEmbeddingIncludeEnum.Embeddings]);
-    let embeddings = response.embeddings;
-
-    let res = [];
-    for (let i = 0; i < ids.length; i++) {
-        let ind = response.ids.indexOf(ids[i]);
-        if (ind === -1) {
-            res.push([]);
-        } else {
-            res.push(embeddings[ind]);
-        }
-    }
-
-
-    return res;
-}
 
 let cache = apicache.options({
     defaultDuration: '1 hour',
@@ -63,6 +47,11 @@ const emptyResponse = {
     metadatas: [[]],
     documents: [[]]
 };
+
+const getLatestConfiguration = async () => {
+    const res = await db.query('SELECT id FROM configurations ORDER BY id DESC LIMIT 1');
+    return res.rows[0].id;
+}
 
 app.get('/search', cache(), throttle(throttling), async (req, res) => {
     let query = req.query.q;
@@ -95,6 +84,7 @@ app.get('/search', cache(), throttle(throttling), async (req, res) => {
         return;
     }
 
+    console.log(`Query to embed: ${queryToEmbed}`);
     const { cost, value: embedding } = await getQueryEmbedding(queryToEmbed);
     searchCost += cost;
     // decisionType is always "Δ.1" for the demo
@@ -104,74 +94,42 @@ app.get('/search', cache(), throttle(throttling), async (req, res) => {
     let where = whereObj;
     console.log(JSON.stringify(where));
 
-    let response = await decisions.query(embedding, n, where);
+    const configurationId = await getLatestConfiguration();
+    console.log(`Configuration ID: ${configurationId}`);
+    let results = await db.query(
+        `SELECT
+            ada,
+            decision_metadata,
+            text,
+            document_metadata,
+            x, y,
+            embedding <-> $2 AS distance
+        FROM configuration_view($1)
+        ORDER BY embedding <-> $2
+        LIMIT $3`,
+        [configurationId, pgvector.toSql(embedding), n]
+    );
 
     //re-add the decision type
     whereObj.decisionType = whereDecisionType;
-
-    if (response.error || response.detail) {
-        if (response.detail && response.detail.includes("No datapoints found for the supplied filter")) {
-            response = emptyResponse;
-        } else {
-            console.log(response);
-            res.status(500).send({ "error": "Failed to query" });
-            return;
-        }
-    }
-
-    let results = [];
-    for (let i = 0; i < response.ids[0].length; i++) {
-        results.push({
-            id: response.ids[0][i],
-            distance: response.distances[0][i],
-            subject: response.metadatas[0][i].subject,
-            metadata: response.metadatas[0][i],
-            document: response.documents[0][i]
-        });
-    }
 
     let endTime = Date.now();
     let timeMs = endTime - startTime;
     res.send({
         queryMetadata: {
-            resultCount: results.length,
+            resultCount: results.rows.length,
             semanticQuery: queryToEmbed,
             whereQuery: whereObj,
             cost: searchCost,
             timeMs,
             queryEmbedding: embedding
         },
-        results
-    });
-});
-
-app.get('/embeddings', async (req, res) => {
-    //@ts-ignore
-    let idsString: string = req.query.ids;
-    let ids = idsString.split(",");
-
-    if (ids === undefined) {
-        res.status(400).send({ "error": "Missing ids" });
-        return;
-    }
-
-    if (!Array.isArray(ids)) {
-        res.status(400).send({ "error": "Ids must be an array" });
-        return;
-    }
-
-    let embeddings = await getEmbeddings(decisions, ids);
-
-    res.send({
-        embeddings
+        results: results.rows
     });
 });
 
 app.get('/status', async (req, res) => {
-    let decisionCount = await decisions.count();
-
     res.send({
-        decisionCount
     });
 });
 
@@ -197,6 +155,55 @@ app.get('/embed', async (req, res) => {
     });
 });
 
+let getTaskId = async (taskType: string, taskName: string, taskVersion: string | undefined): Promise<string> => {
+    var result;
+    if (!taskVersion) {
+        result = await db.query("SELECT id FROM tasks WHERE type = $1 AND name = $2 ORDER BY version DESC", [taskType, taskName]);
+    } else {
+        result = await db.query("SELECT id FROM tasks WHERE type = $1 AND name = $2 AND version = $3", [taskType, taskName, taskVersion]);
+    }
+
+    if (result.rows.length === 0) {
+        throw new Error(`Task not found: ${taskType} ${taskName} ${taskVersion}`);
+    }
+
+    return result.rows[0].id;
+}
+
+app.post('/configuration', async (req, res) => {
+    let { ingestorName, ingestorVersion } = req.body;
+    let { textExtractorName, textExtractorVersion } = req.body;
+    let { embedderName, embedderVersion } = req.body;
+    let { dimensionalityReducerName, dimensionalityReducerVersion } = req.body;
+    let { name } = req.body;
+
+    if (!ingestorName || !textExtractorName || !embedderName || !dimensionalityReducerName) {
+        res.status(400).send({ "error": "Missing required fields" });
+        return;
+    }
+
+    try {
+        var ingestorId = await getTaskId('ingestor', ingestorName, ingestorVersion);
+        var textExtractorId = await getTaskId('text-extractor', textExtractorName, textExtractorVersion);
+        var embedderId = await getTaskId('embedder', embedderName, embedderVersion);
+        var dimensionalityReducerId = await getTaskId('dimensionality-reducer', dimensionalityReducerName, dimensionalityReducerVersion);
+    } catch (e: any) {
+        res.status(400).send({ "error": e.message });
+        return;
+    }
+
+    let viewId = await createViewConfiguration(db, {
+        name,
+        ingestorTaskId: ingestorId,
+        textExtractorTaskId: textExtractorId,
+        embedderTaskId: embedderId,
+        dimensionalityReducerTaskId: dimensionalityReducerId
+    });
+
+    res.send({
+        id: viewId
+    });
+});
 
 const start = async () => {
     let port = 3000;

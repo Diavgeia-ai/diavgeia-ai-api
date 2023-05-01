@@ -57,3 +57,55 @@ CREATE TABLE semantic_points (
 );
 
 ALTER TABLE semantic_points RENAME COLUMN reductor_task_id TO dimensionality_reducer_task_id;
+
+CREATE TABLE configuration (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  ingestor_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+  text_extractor_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+  embedder_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+  reductor_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE
+);
+ALTER TABLE configuration RENAME TO configurations;
+
+CREATE OR REPLACE FUNCTION configuration_view(configuration_id INTEGER)
+RETURNS TABLE (
+  ada TEXT,
+  decision_metadata JSONB,
+  text TEXT,
+  document_metadata JSONB,
+  embedding VECTOR,
+  x FLOAT,
+  y FLOAT
+) AS $$
+BEGIN
+  RETURN QUERY
+  WITH c AS (
+    SELECT * FROM configurations WHERE id = configuration_id
+  )
+  SELECT
+    d.ada,
+    d.metadata AS decision_metadata,
+    t.text,
+    t.document_metadata,
+    AVG(e.embedding) AS embedding,
+    sp.x,
+    sp.y
+  FROM
+    decisions d
+    LEFT JOIN texts t ON d.id = t.decision_id AND t.text_extractor_task_id = (SELECT text_extractor_task_id FROM c)
+    LEFT JOIN embeddings e ON t.id = e.text_id AND e.embedder_task_id = (SELECT embedder_task_id FROM c)
+    LEFT JOIN semantic_points sp ON d.id = sp.decision_id AND sp.dimensionality_reducer_task_id = (SELECT dimensionality_reducer_task_id FROM c)
+  WHERE
+    d.ingestor_task_id = (SELECT ingestor_task_id FROM c)
+  GROUP BY
+    d.ada,
+    d.metadata,
+    t.text,
+    t.document_metadata,
+    sp.x,
+    sp.y;
+END; $$ LANGUAGE plpgsql;
+
+
+ALTER TABLE configurations RENAME COLUMN reductor_task_id TO dimensionality_reducer_task_id;

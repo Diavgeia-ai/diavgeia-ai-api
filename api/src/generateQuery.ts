@@ -7,9 +7,9 @@ import Logger from "./logger";
 const openai = getOpenAIClient();
 
 const METADATA_FIELDS = ["issueDate", "amountWithVAT", "decisionType"];
-const MODEL = "text-davinci-003";
+const MODEL = process.env.OPENAI_MODEL || "text-davinci-003";
 
-const getQueryPrompt = (textQuery : string) => {
+const getQueryPrompt = (textQuery: string) => {
     return `
     You have to generate a JSON query from a line of free text (that is likely to be in greek).
     The query will be used to search for decisions (Πράξεις) uploaded to Diavgeia.
@@ -47,19 +47,20 @@ const getQueryPrompt = (textQuery : string) => {
     `;
 };
 
-let convertIssueDateFilter = (filter : any) => {
+let convertIssueDateFilter = (filter: any) => {
     if (filter === undefined) return undefined;
 
-    return {"$and": [
-        {"issueDate": {"$gt": Date.parse(filter["$gt"])}},
-        {"issueDate": {"$lte": Date.parse(filter["$lte"]) + 24 * 60 * 60 * 1000}},
-    ]};
+    return {
+        "$and": [
+            { "issueDate": { "$gt": Date.parse(filter["$gt"]) } },
+            { "issueDate": { "$lte": Date.parse(filter["$lte"]) + 24 * 60 * 60 * 1000 } },
+        ]
+    };
 }
 
-export async function generateChromaQuery (textQuery : string) : Promise<ValueWithCost<[string, {[key : string] : object}]>> {
+export async function generateChromaQuery(textQuery: string): Promise<ValueWithCost<[string, { [key: string]: object }]>> {
 
     let prompt = getQueryPrompt(textQuery);
-    console.log(prompt);
 
     try {
         var openaiResponse = await openai.createCompletion({
@@ -68,7 +69,7 @@ export async function generateChromaQuery (textQuery : string) : Promise<ValueWi
             max_tokens: 2560,
             temperature: 0.1
         });
-    } catch (e : any) {
+    } catch (e: any) {
         console.log(e.response.data);
         throw new Error("OpenAI failed to generate query");
     }
@@ -83,7 +84,7 @@ export async function generateChromaQuery (textQuery : string) : Promise<ValueWi
     let text = jsonQuery.text;
     if (jsonQuery.issueDate) {
         let andClause = convertIssueDateFilter(jsonQuery.issueDate);
-        jsonQuery = {...jsonQuery, ...andClause};
+        jsonQuery = { ...jsonQuery, ...andClause };
         delete jsonQuery.issueDate;
     }
     delete jsonQuery.text;
@@ -98,7 +99,7 @@ export async function generateChromaQuery (textQuery : string) : Promise<ValueWi
 
     return {
         // TODO: this is incorrect; prompt tokens are priced differently
-        cost:  tokensUsed * modelTokenPriceUsd[MODEL],
+        cost: tokensUsed * modelTokenPriceUsd[MODEL as keyof typeof modelTokenPriceUsd],
         value: [text, jsonQuery]
     };
 }

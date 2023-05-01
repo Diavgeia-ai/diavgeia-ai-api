@@ -1,15 +1,15 @@
 import { PromisePool } from "@supercharge/promise-pool";
-import { ChromaClient } from 'chromadb';
 import Logger from './logger';
 import { OpenAIApi, Configuration } from "openai";
-import { Collection } from 'chromadb';
 import dotenv from 'dotenv';
 import { ModelName } from './types';
 import Cohere from "cohere-ai";
 import UsageMonitor from "./UsageMonitor";
+import { ValueWithCost } from "./types";
 
 dotenv.config();
 const logger = new Logger();
+console.log(`Cohere API key: ${process.env.COHERE_API_KEY}`);
 Cohere.init(process.env.COHERE_API_KEY!);
 
 export type DiavgeiaQuery = {
@@ -63,27 +63,6 @@ export async function doWithPooling<A, B>(elems: A[], func: ((x: A) => Promise<B
     return results;
 }
 
-export const getOrCreateChromaCollection = async (collectionName: string): Promise<Collection> => {
-    let client = new ChromaClient();
-    let collections = await client.listCollections();
-
-    let collection;
-    if (collections.map((c: any) => c.name).filter((n: string) => n === collectionName).length === 0) {
-        logger.info(`Creating collection ${collectionName}`);
-        collection = await client.createCollection(collectionName);
-    } else {
-        logger.info(`Getting collection ${collectionName}`);
-        collection = await client.getCollection(collectionName);
-    }
-
-    return collection;
-}
-
-export const deleteCollection = async (collectionName: string) => {
-    let client = new ChromaClient();
-    await client.deleteCollection(collectionName);
-}
-
 export const getOpenAIClient = () => {
     const configuration = new Configuration({
         apiKey: process.env.OPENAI_API_KEY!,
@@ -91,8 +70,9 @@ export const getOpenAIClient = () => {
     return new OpenAIApi(configuration);
 }
 
-export const generateCohereEmbedding = async (model: ModelName, text: string) => {
+export const generateCohereEmbedding = async (model: ModelName, text: string): Promise<ValueWithCost<number[]>> => {
     let embedResponse;
+    const cost = 0.001;
     try {
         embedResponse = await Cohere.embed({
             texts: [text],
@@ -103,10 +83,15 @@ export const generateCohereEmbedding = async (model: ModelName, text: string) =>
         console.log(e);
         throw e;
     } finally {
-        UsageMonitor.addCost(0.0001);
+        UsageMonitor.addCost(cost);
     }
 
-    return embedResponse.body.embeddings[0];
+    console.log("Cohere:");
+    console.log(embedResponse);
+    return {
+        cost,
+        value: embedResponse.body.embeddings[0]
+    };
 }
 
 export const isWhitespace = (str: string) => {

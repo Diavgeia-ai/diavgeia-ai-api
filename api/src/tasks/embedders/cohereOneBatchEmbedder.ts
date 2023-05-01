@@ -66,7 +66,8 @@ class CohereOneBatchEmbedder extends Embedder {
     }
 
     private async getEmbedding(text: any, decisionMetadata: any): Promise<number[]> {
-        return await generateCohereEmbedding(MODEL, this.getTextToEmbed(text, decisionMetadata));
+        let { value, cost } = await generateCohereEmbedding(MODEL, this.getTextToEmbed(text, decisionMetadata));
+        return value;
     }
 
     private getTextToEmbed(text: any, decisionMetadata: any): string {

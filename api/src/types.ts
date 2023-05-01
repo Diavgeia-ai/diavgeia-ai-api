@@ -4,3 +4,11 @@ export type ValueWithCost<A> = {
     value: A;
     cost: number;
 };
+
+export type ViewConfiguration = {
+    name: string;
+    ingestorTaskId: string;
+    textExtractorTaskId: string;
+    embedderTaskId: string;
+    dimensionalityReducerTaskId: string;
+}

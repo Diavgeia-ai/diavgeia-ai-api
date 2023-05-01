@@ -33,7 +33,7 @@ class SimpleTextExtractor extends TextExtractor {
         }
 
         for (let offset = 0; true; offset += BATCH_SIZE) {
-            let inputDocuments = await this.db.query('SELECT id, metadata FROM decisions WHERE ingestor_task_id = $1 ORDER BY id LIMIT $2 OFFSET $3', [params.ingestorTaskId, BATCH_SIZE, offset]);
+            let inputDocuments = await this.db.query('SELECT id, ada, document_url, metadata FROM decisions WHERE ingestor_task_id = $1 ORDER BY id LIMIT $2 OFFSET $3', [params.ingestorTaskId, BATCH_SIZE, offset]);
             if (inputDocuments.rows.length === 0) {
                 break;
             }
@@ -41,7 +41,7 @@ class SimpleTextExtractor extends TextExtractor {
             let texts: DocumentText[] = []
 
             for (let inputDocument of inputDocuments.rows) {
-                let [text, metadata] = await this.extractTextAndMetadata(inputDocument.metadata);
+                let [text, metadata] = await this.extractTextAndMetadata(inputDocument.ada, inputDocument.document_url);
                 texts.push({
                     decisionId: inputDocument.id,
                     text: text,
@@ -58,11 +58,10 @@ class SimpleTextExtractor extends TextExtractor {
         this.logger.debug('Finished simple text extractor');
     }
 
-    private async extractTextAndMetadata(metadata: any): Promise<[string | null, any]> {
+    private async extractTextAndMetadata(ada: string, documentUrl: string): Promise<[string | null, any]> {
         let documentMetadata: any = {};
-        let documentUrl = metadata.documentUrl;
         if (!documentUrl || documentUrl === '') {
-            this.logger.warn(`Document ${metadata.id} has no documentUrl`);
+            this.logger.warn(`Document ${ada} has no documentUrl`);
             documentMetadata.hasDocument = false;
             return [null, documentMetadata];
         }
@@ -92,7 +91,7 @@ class SimpleTextExtractor extends TextExtractor {
         }
 
         if (isWhitespace(pageTexts.join(""))) {
-            this.logger.warn(`Document ${documentUrl} has empty text`);
+            this.logger.warn(`Document ${ada} ${documentUrl} has empty text`);
             documentMetadata.textExtractionFailure = true;
             pageTexts = [];
         } else {
