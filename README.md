@@ -15,7 +15,7 @@ cp .env.sample .env && vi .env
 ```
 docker compose up --build -d
 ```
-4. **Check that the database and api is running**: Verify both diavgeia-db and diavgeia-api are up and running:
+4. **Check that the database and api is running**: Verify both `diavgeia-db` and `diavgeia-api` are up and running:
 ```bash
 docker ps
 ```
@@ -33,5 +33,5 @@ docker exec diavgeia-api npm run cli -- embed --impl cohere-one-batch-embedder -
 ```
 8. **Create semantic 2D points** that the frontend can visualize for the embeddings you just generated. The below creates semantic points for the most recent embedding. You can specify another embedding task with `--embedder-task-id`:
 ```bash
-docker exec diavgeia-api npm run cli -- embed --impl umap-reductor --name jan23-10d-red
+docker compose exec api npm run cli -- dimensionality-reduction --name jan23-10d-red --impl umap-dimensionality-reducer
 ```
