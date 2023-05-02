@@ -9,7 +9,7 @@ export type ViewConfiguration = {
     name: string;
     ingestorTaskId: string;
     textExtractorTaskId: string;
-    summarizerTaskId: string;
+    summarizerTaskId?: string;
     embedderTaskId: string;
     dimensionalityReducerTaskId: string;
 }

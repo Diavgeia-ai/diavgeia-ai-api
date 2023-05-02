@@ -2,7 +2,7 @@ import TaskConstructor from "../taskConstructor";
 import Embedder from "./embedder";
 
 const ENABLED_EMBEDDERS = [
-    "cohereOneBatchEmbedder",
+    "cohereEmbedder",
 ];
 
 async function createEmbedders() {

@@ -1,16 +1,16 @@
 import Embedder from './embedder';
 import dotenv from 'dotenv';
-import { generateCohereEmbedding, sleep } from '../../utils';
+import { generateCohereEmbeddings, sleep } from '../../utils';
 import { Embedding } from './embedding';
 
 dotenv.config();
 
-const IMPLEMENTATION = "cohere-one-batch-embedder";
+const IMPLEMENTATION = "cohere-embedder";
 const REQUIRED_PARAMS = ['textExtractorTaskId'];
 const MODEL = 'multilingual-22-12';
 const BATCH_SIZE = 50;
 
-class CohereOneBatchEmbedder extends Embedder {
+class CohereEmbedder extends Embedder {
     constructor(name: string) {
         super(IMPLEMENTATION, name);
     }
@@ -28,6 +28,7 @@ class CohereOneBatchEmbedder extends Embedder {
         }
 
         let failures = 0;
+        let embeddingCount = 0;
         for (let offset = 0; true; offset += BATCH_SIZE) {
             let inputDocuments = await this.db.query('SELECT t.id, text, d.metadata AS decision_metadata FROM texts AS t LEFT JOIN decisions AS d ON d.id = t.decision_id WHERE text_extractor_task_id = $1  ORDER BY id LIMIT $2 OFFSET $3', [params.textExtractorTaskId, BATCH_SIZE, offset]);
             if (inputDocuments.rows.length === 0) {
@@ -37,25 +38,29 @@ class CohereOneBatchEmbedder extends Embedder {
             let embeddings: Embedding[] = [];
 
             for (let inputDocument of inputDocuments.rows) {
-                let embedding = await this.getEmbedding(inputDocument.text, inputDocument.decision_metadata);
+                let textEmbeddings = await this.getEmbeddings(inputDocument.text, inputDocument.decision_metadata);
 
-                if (!embedding) {
-                    this.logger.warn(`Failed to generate embedding for text ${inputDocument.id}`);
+                if (!textEmbeddings) {
+                    this.logger.warn(`Failed to generate embeddings for text ${inputDocument.id}`);
                     failures++;
                     continue;
                 }
 
-                embeddings.push({
-                    textId: inputDocument.id,
-                    embedding: embedding,
-                    seq: 1
+                textEmbeddings.forEach((embedding, index) => {
+                    embeddingCount++;
+                    embeddings.push({
+                        textId: inputDocument.id,
+                        embedding: embedding,
+                        seq: index + 1
+                    });
                 });
             }
 
             await this.saveEmbeddings(embeddings);
 
-            this.logger.info(`Processed ${offset + embeddings.length} texts`);
-            this.updateMetrics({ texts_processed: offset + embeddings.length, failures: failures });
+            this.logger.info(`Processed ${offset + embeddings.length} texts with ${embeddingCount} embeddings`);
+            this.updateMetrics({ texts_processed: offset + embeddings.length, failures: failures, embeddings_generated: embeddingCount });
+
             if (process.env.COHERE_RATE_LIMITING === 'true') {
                 await sleep(30 * 1000);
             }
@@ -64,8 +69,10 @@ class CohereOneBatchEmbedder extends Embedder {
         this.logger.debug('Finished cohere one batch embedder');
     }
 
-    private async getEmbedding(text: any, decisionMetadata: any): Promise<number[]> {
-        let { value, cost } = await generateCohereEmbedding(MODEL, this.getTextToEmbed(text, decisionMetadata));
+    private async getEmbeddings(text: any, decisionMetadata: any): Promise<number[][]> {
+        let textToEmbed = this.getTextToEmbed(text, decisionMetadata);
+        let textsToEmbed = textToEmbed.split("\n\n");
+        let { value, cost } = await generateCohereEmbeddings(MODEL, textsToEmbed);
         return value;
     }
 
@@ -81,4 +88,4 @@ class CohereOneBatchEmbedder extends Embedder {
 
 }
 
-export default [IMPLEMENTATION, CohereOneBatchEmbedder];
+export default [IMPLEMENTATION, CohereEmbedder];

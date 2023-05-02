@@ -274,11 +274,18 @@ let main = async () => {
             description: 'Implementation of the dimensionality reducer',
             default: 'umap-dimensionality-reducer',
             demandOption: true,
+          })
+          .option('skip', {
+            type: 'string',
+            description: 'Comma-separated list of tasks to skip',
+            default: '',
           });
       },
       async (argv) => {
         const { name, startDate, endDate, decisionTypes } = argv;
         const { ingestorImpl, textExtractorImpl, summarizerImpl, embedderImpl, dimensionalityReducerImpl } = argv;
+        const { skipList } = argv;
+        let skip = (skipList as string).split(',');
         const ingestorConstructor = getTaskImplementation('ingestor', ingestorImpl);
         const textExtractorConstructor = getTaskImplementation('text-extractor', textExtractorImpl);
         const summarizerConstructor = getTaskImplementation('summarizer', summarizerImpl);
@@ -297,8 +304,11 @@ let main = async () => {
         const textExtractor = textExtractorConstructor.create(textExtractorName);
         let textExtractorTaskId = (await textExtractor.start({ ingestorTaskId }));
 
-        const summarizer = summarizerConstructor.create(summarizerName);
-        let summarizerPromise = await summarizer.start({ textExtractorTaskId });
+        let summarizerPromise: Promise<string | undefined> = Promise.resolve(undefined);
+        if (!skip.includes('summarizer')) {
+          const summarizer = summarizerConstructor.create(summarizerName);
+          summarizerPromise = summarizer.start({ textExtractorTaskId });
+        }
 
         const embedder = embedderConstructor.create(embedderName);
         let embedderTaskId = (await embedder.start({ textExtractorTaskId }));

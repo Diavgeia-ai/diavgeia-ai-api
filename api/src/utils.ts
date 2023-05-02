@@ -1,6 +1,6 @@
 import { PromisePool } from "@supercharge/promise-pool";
 import Logger from './logger';
-import { OpenAIApi, Configuration } from "openai";
+import { OpenAIApi, Configuration, Model } from "openai";
 import dotenv from 'dotenv';
 import { ModelName } from './types';
 import Cohere from "cohere-ai";
@@ -70,12 +70,12 @@ export const getOpenAIClient = () => {
     return new OpenAIApi(configuration);
 }
 
-export const generateCohereEmbedding = async (model: ModelName, text: string): Promise<ValueWithCost<number[]>> => {
+export const generateCohereEmbeddings = async (model: ModelName, texts: string[]): Promise<ValueWithCost<number[][]>> => {
     let embedResponse;
     const cost = 0.001;
     try {
         embedResponse = await Cohere.embed({
-            texts: [text],
+            texts: texts,
             model,
             truncate: "END"
         });
@@ -86,11 +86,17 @@ export const generateCohereEmbedding = async (model: ModelName, text: string): P
         UsageMonitor.addCost(cost);
     }
 
-    console.log("Cohere:");
-    console.log(embedResponse);
     return {
         cost,
-        value: embedResponse.body.embeddings[0]
+        value: embedResponse.body.embeddings
+    };
+}
+
+export const generateCohereEmbedding = async (model: ModelName, text: string): Promise<ValueWithCost<number[]>> => {
+    let ret = await generateCohereEmbeddings(model, [text]);
+    return {
+        cost: ret.cost,
+        value: ret.value[0]
     };
 }
 
