@@ -87,7 +87,7 @@ class SimpleTextExtractor extends TextExtractor {
             pageTexts.push(textContent.items.map((x) => {
                 if ("str" in x) return x.str;
                 else return ""; // will never happen
-            }).join(" "));
+            }).join("\n"));
         }
 
         if (isWhitespace(pageTexts.join(""))) {
@@ -98,7 +98,7 @@ class SimpleTextExtractor extends TextExtractor {
             documentMetadata.textExtractionFailure = false;
         }
 
-        let text = pageTexts.join("\n");
+        let text = pageTexts.join("\n\n");
 
         let pdfMetadata = await doc.getMetadata();
         if (pdfMetadata.metadata) {
