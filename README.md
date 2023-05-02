@@ -15,7 +15,7 @@ You can optionally check that both `diavgeia-db` and `diavgeia-api` are up and r
 
 3. **Run the data pipeline**: The below ingests all decisions in the Δ.1 category published during the first 10 days of 2023, using the default components. It will also create a view configuration.
 ```bash
-docker compose exec api run cli -- pipeline --name jan23-10d  --startDate 2023-01-01 --endDate 2023-01-10 --decisionTypes Δ.1
+docker compose exec api run npm cli -- pipeline --name jan23-10d  --startDate 2023-01-01 --endDate 2023-01-10 --decisionTypes Δ.1
 ```
 
 ### The data pipeline step by step

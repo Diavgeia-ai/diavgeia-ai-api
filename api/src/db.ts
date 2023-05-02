@@ -12,11 +12,12 @@ export let getDbPool = (): Pool => {
 }
 
 export let createViewConfiguration = async (db: Pool, viewConfiguration: ViewConfiguration) => {
-    let result = await db.query('INSERT INTO configurations (name, ingestor_task_id, text_extractor_task_id, embedder_task_id, dimensionality_reducer_task_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+    let result = await db.query('INSERT INTO configurations (name, ingestor_task_id, text_extractor_task_id, summarizer_task_id, embedder_task_id, dimensionality_reducer_task_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
         [
             viewConfiguration.name,
             viewConfiguration.ingestorTaskId,
             viewConfiguration.textExtractorTaskId,
+            viewConfiguration.summarizerTaskId,
             viewConfiguration.embedderTaskId,
             viewConfiguration.dimensionalityReducerTaskId
         ]

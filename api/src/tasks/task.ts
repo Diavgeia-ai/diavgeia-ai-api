@@ -15,7 +15,7 @@ interface TaskFilter {
 }
 
 type TaskStatus = 'running' | 'succeeded' | 'failed';
-type TaskType = 'ingestor' | 'text-extractor' | 'embedder' | 'dimensionality-reducer';
+type TaskType = 'ingestor' | 'text-extractor' | 'embedder' | 'dimensionality-reducer' | 'summarizer';
 
 abstract class Task {
     // Common properties and methods for all tasks

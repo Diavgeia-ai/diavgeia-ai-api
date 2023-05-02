@@ -1,13 +1,11 @@
 import { getOpenAIClient } from "./utils";
 import { decisionTypes } from "./decisionTypes";
-import { ValueWithCost } from "./types";
-import { modelTokenPriceUsd } from "./utils";
+import { ModelName, ValueWithCost } from "./types";
+import { generateOpenAIResponse } from "./utils";
 import Logger from "./logger";
 
-const openai = getOpenAIClient();
-
 const METADATA_FIELDS = ["issueDate", "amountWithVAT", "decisionType"];
-const MODEL = process.env.OPENAI_MODEL || "text-davinci-003";
+const MODEL = (process.env.OPENAI_MODEL as ModelName) || "text-davinci-003";
 
 const getQueryPrompt = (textQuery: string) => {
     return `
@@ -62,21 +60,8 @@ export async function generateChromaQuery(textQuery: string): Promise<ValueWithC
 
     let prompt = getQueryPrompt(textQuery);
 
-    try {
-        var openaiResponse = await openai.createCompletion({
-            model: MODEL,
-            prompt,
-            max_tokens: 2560,
-            temperature: 0.1
-        });
-    } catch (e: any) {
-        console.log(e.response.data);
-        throw new Error("OpenAI failed to generate query");
-    }
+    let { value: textResponse, cost } = await generateOpenAIResponse(MODEL, prompt, 0.1);
 
-    let textResponse = openaiResponse.data.choices[0].text?.trim();
-    console.log("OpenAI response: ", textResponse);
-    console.log("Reason end:", openaiResponse.data.choices[0].finish_reason);
     if (!textResponse) {
         throw new Error("OpenAI returned an empty response");
     }
@@ -91,15 +76,8 @@ export async function generateChromaQuery(textQuery: string): Promise<ValueWithC
 
     console.log("Generated query: ", text, jsonQuery);
 
-    let tokensUsed = openaiResponse.data.usage?.total_tokens;
-    if (!tokensUsed) {
-        console.log("OpenAI did not return usage information");
-        tokensUsed = 0;
-    }
-
     return {
-        // TODO: this is incorrect; prompt tokens are priced differently
-        cost: tokensUsed * modelTokenPriceUsd[MODEL as keyof typeof modelTokenPriceUsd],
+        cost,
         value: [text, jsonQuery]
     };
 }

@@ -103,4 +103,51 @@ export const modelTokenPriceUsd = {
     "text-embedding-ada-002": 0.0004 / 1000,
     "multilingual-22-12": 0.0002 / 1000,
     "text-davinci-003": 0.06 / 1000,
+    "gpt-4": 0.03 / 1000
+}
+
+const openai = getOpenAIClient();
+
+export async function generateOpenAIResponse(model: ModelName, prompt: string, temperature: number): Promise<ValueWithCost<string>> {
+    try {
+        var textResponse: string | undefined;
+        var tokensUsed: number | undefined;
+        if (model === "gpt-4") {
+            var chatResponse = await openai.createChatCompletion({
+                model,
+                messages: [{
+                    role: "user",
+                    content: prompt.split(' ').slice(0, 400).join(' ')
+                }],
+                max_tokens: 512,
+                temperature
+            });
+            textResponse = chatResponse.data.choices[0].message?.content?.trim();
+            tokensUsed = chatResponse.data.usage?.total_tokens;
+        } else {
+            let completionResponse = await openai.createCompletion({
+                model,
+                prompt,
+                max_tokens: 8192,
+                temperature
+            });
+            textResponse = completionResponse.data.choices[0].text?.trim();
+            tokensUsed = completionResponse.data.usage?.total_tokens;
+        }
+    } catch (e: any) {
+        console.log(e.response.data);
+        throw new Error("OpenAI failed to generate query");
+    }
+
+    if (!textResponse || !tokensUsed) {
+        throw new Error("OpenAI returned an empty response");
+    }
+
+    let cost = tokensUsed * modelTokenPriceUsd[model];
+    UsageMonitor.addCost(cost);
+
+    return {
+        value: textResponse,
+        cost
+    }
 }

@@ -11,16 +11,18 @@ env.config({ path: path.resolve(__dirname, '../../.env') });
 let main = async () => {
   const ingestorCreatorPromise = await import('./tasks/ingestors/ingestors');
   const textExtractorCreatorPromise = await import('./tasks/textExtractors/textExtractors');
+  const summarizerCreatorPromise = await import('./tasks/summarizers/summarizers');
   const embedderCreatorPromise = await import('./tasks/embedders/embedders');
   const dimensionalityReducerCreatorPromise = await import('./tasks/dimensionalityReducers/dimensionalityReducers');
 
   const ingestors = await ingestorCreatorPromise.default;
   const textExtractors = await textExtractorCreatorPromise.default;
+  const summarizers = await summarizerCreatorPromise.default;
   const embedders = await embedderCreatorPromise.default;
   const dimensionalityReducers = await dimensionalityReducerCreatorPromise.default;
 
 
-  let getTaskImplementation = (type: 'ingestor' | 'text-extractor' | 'embedder' | 'dimensionality-reducer', implementation: string): TaskConstructor => {
+  let getTaskImplementation = (type: 'ingestor' | 'text-extractor' | 'embedder' | 'dimensionality-reducer' | 'summarizer', implementation: string): TaskConstructor => {
     var implementations;
     switch (type) {
       case 'ingestor':
@@ -34,6 +36,9 @@ let main = async () => {
         break;
       case 'dimensionality-reducer':
         implementations = dimensionalityReducers;
+        break;
+      case 'summarizer':
+        implementations = summarizers;
         break;
     }
 
@@ -115,6 +120,39 @@ let main = async () => {
         const textExtractorConstructor = getTaskImplementation('text-extractor', impl);
         const textExtractor = textExtractorConstructor.create(name);
         await textExtractor.start({ ingestorTaskId });
+      }
+    )
+    .command(
+      'summarizer',
+      'Summarize texts',
+      (yargs) => {
+        return yargs
+          .option('impl', {
+            type: 'string',
+            description: 'Implementation of the summarizer',
+            demandOption: true,
+          })
+          .option('name', {
+            type: 'string',
+            description: 'Human-friendly name for this task run',
+            demandOption: true,
+          })
+          .option('textExtractorTaskId', {
+            type: 'string',
+            description: 'Task ID of the text extractor task to extract text from',
+            optional: true
+          });
+      },
+      async (argv) => {
+        var { impl, name, textExtractorTaskId } = argv;
+
+        const summarizerConstructor = getTaskImplementation('summarizer', impl);
+        const summarizer = summarizerConstructor.create(name);
+        if (!textExtractorTaskId) {
+          textExtractorTaskId = (await summarizer.getLastTaskId('text-extractor')).toString();
+        }
+
+        await summarizer.start({ textExtractorTaskId });
       }
     )
     .command(
@@ -219,6 +257,12 @@ let main = async () => {
             default: 'simple-text-extractor',
             demandOption: true,
           })
+          .option('summarizerImpl', {
+            type: 'string',
+            description: 'Implementation of the summarizer',
+            default: 'gpt-summarizer',
+            demandOption: true,
+          })
           .option('embedderImpl', {
             type: 'string',
             description: 'Implementation of the embedder',
@@ -234,14 +278,16 @@ let main = async () => {
       },
       async (argv) => {
         const { name, startDate, endDate, decisionTypes } = argv;
-        const { ingestorImpl, textExtractorImpl, embedderImpl, dimensionalityReducerImpl } = argv;
+        const { ingestorImpl, textExtractorImpl, summarizerImpl, embedderImpl, dimensionalityReducerImpl } = argv;
         const ingestorConstructor = getTaskImplementation('ingestor', ingestorImpl);
         const textExtractorConstructor = getTaskImplementation('text-extractor', textExtractorImpl);
+        const summarizerConstructor = getTaskImplementation('summarizer', summarizerImpl);
         const embedderConstructor = getTaskImplementation('embedder', embedderImpl);
         const dimensionalityReducerConstructor = getTaskImplementation('dimensionality-reducer', dimensionalityReducerImpl);
 
         let ingestorName = `${name}-ingestor`;
         let textExtractorName = `${name}-text-extractor`;
+        let summarizerName = `${name}-summarizer`;
         let embedderName = `${name}-embedder`;
         let dimensionalityReducerName = `${name}-dimensionality-reducer`;
 
@@ -251,16 +297,22 @@ let main = async () => {
         const textExtractor = textExtractorConstructor.create(textExtractorName);
         let textExtractorTaskId = (await textExtractor.start({ ingestorTaskId }));
 
+        const summarizer = summarizerConstructor.create(summarizerName);
+        let summarizerPromise = await summarizer.start({ textExtractorTaskId });
+
         const embedder = embedderConstructor.create(embedderName);
         let embedderTaskId = (await embedder.start({ textExtractorTaskId }));
 
         const dimensionalityReducer = dimensionalityReducerConstructor.create(dimensionalityReducerName);
         let dimensionalityReducerTaskId = await dimensionalityReducer.start({ embedderTaskId });
 
+        let summarizerTaskId = await summarizerPromise;
+
         let viewId = await createViewConfiguration(getDbPool(), {
           name,
           ingestorTaskId: ingestorTaskId,
           textExtractorTaskId: textExtractorTaskId,
+          summarizerTaskId: summarizerTaskId,
           embedderTaskId: embedderTaskId,
           dimensionalityReducerTaskId: dimensionalityReducerTaskId
         });

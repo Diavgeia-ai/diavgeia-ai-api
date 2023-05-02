@@ -173,6 +173,7 @@ let getTaskId = async (taskType: string, taskName: string, taskVersion: string |
 app.post('/configuration', async (req, res) => {
     let { ingestorName, ingestorVersion } = req.body;
     let { textExtractorName, textExtractorVersion } = req.body;
+    let { summarizerName, summarizerVersion } = req.body;
     let { embedderName, embedderVersion } = req.body;
     let { dimensionalityReducerName, dimensionalityReducerVersion } = req.body;
     let { name } = req.body;
@@ -185,6 +186,7 @@ app.post('/configuration', async (req, res) => {
     try {
         var ingestorId = await getTaskId('ingestor', ingestorName, ingestorVersion);
         var textExtractorId = await getTaskId('text-extractor', textExtractorName, textExtractorVersion);
+        var summarizerTaskId = await getTaskId('summarizer', summarizerName, summarizerVersion);
         var embedderId = await getTaskId('embedder', embedderName, embedderVersion);
         var dimensionalityReducerId = await getTaskId('dimensionality-reducer', dimensionalityReducerName, dimensionalityReducerVersion);
     } catch (e: any) {
@@ -196,6 +198,7 @@ app.post('/configuration', async (req, res) => {
         name,
         ingestorTaskId: ingestorId,
         textExtractorTaskId: textExtractorId,
+        summarizerTaskId: summarizerTaskId,
         embedderTaskId: embedderId,
         dimensionalityReducerTaskId: dimensionalityReducerId
     });

@@ -3,15 +3,12 @@ import dotenv from 'dotenv';
 import { generateCohereEmbedding, sleep } from '../../utils';
 import { Embedding } from './embedding';
 
-
 dotenv.config();
 
 const IMPLEMENTATION = "cohere-one-batch-embedder";
 const REQUIRED_PARAMS = ['textExtractorTaskId'];
 const MODEL = 'multilingual-22-12';
 const BATCH_SIZE = 50;
-const SLEEP_AFTER_BATCH_SEC = 30;
-
 
 class CohereOneBatchEmbedder extends Embedder {
     constructor(name: string) {
@@ -59,7 +56,9 @@ class CohereOneBatchEmbedder extends Embedder {
 
             this.logger.info(`Processed ${offset + embeddings.length} texts`);
             this.updateMetrics({ texts_processed: offset + embeddings.length, failures: failures });
-            await sleep(SLEEP_AFTER_BATCH_SEC * 1000); // stupid cohere rate limiting
+            if (process.env.COHERE_RATE_LIMITING === 'true') {
+                await sleep(30 * 1000);
+            }
         }
 
         this.logger.debug('Finished cohere one batch embedder');

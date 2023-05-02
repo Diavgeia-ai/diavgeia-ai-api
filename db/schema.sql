@@ -38,6 +38,15 @@ CREATE TABLE texts (
   updated_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
+CREATE TABLE summaries (
+  id SERIAL PRIMARY KEY,
+  text_id INTEGER REFERENCES texts(id) ON DELETE CASCADE,
+  summarizer_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+  summary TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT now(),
+  updated_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
 CREATE TABLE embeddings (
   id SERIAL PRIMARY KEY,
   text_id INTEGER REFERENCES texts(id) ON DELETE CASCADE,
@@ -51,22 +60,21 @@ CREATE TABLE embeddings (
 CREATE TABLE semantic_points (
   id SERIAL PRIMARY KEY,
   decision_id INTEGER REFERENCES decisions(id) ON DELETE CASCADE,
-  reductor_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+  dimensionality_reducer_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
   x FLOAT NOT NULL,
   y FLOAT NOT NULL
 );
 
-ALTER TABLE semantic_points RENAME COLUMN reductor_task_id TO dimensionality_reducer_task_id;
 
-CREATE TABLE configuration (
+CREATE TABLE configurations (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   ingestor_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
   text_extractor_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+  summarizer_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
   embedder_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
-  reductor_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE
+  dimensionality_reducer_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE
 );
-ALTER TABLE configuration RENAME TO configurations;
 
 CREATE OR REPLACE FUNCTION configuration_view(configuration_id INTEGER)
 RETURNS TABLE (
@@ -87,6 +95,7 @@ BEGIN
     d.ada,
     d.metadata AS decision_metadata,
     t.text,
+    t.summary,
     t.document_metadata,
     AVG(e.embedding) AS embedding,
     sp.x,
@@ -94,6 +103,7 @@ BEGIN
   FROM
     decisions d
     LEFT JOIN texts t ON d.id = t.decision_id AND t.text_extractor_task_id = (SELECT text_extractor_task_id FROM c)
+    LEFT JOIN summaries s ON t.id = s.text_id AND s.summarizer_task_id = (SELECT summarizer_task_id FROM c)
     LEFT JOIN embeddings e ON t.id = e.text_id AND e.embedder_task_id = (SELECT embedder_task_id FROM c)
     LEFT JOIN semantic_points sp ON d.id = sp.decision_id AND sp.dimensionality_reducer_task_id = (SELECT dimensionality_reducer_task_id FROM c)
   WHERE
@@ -102,10 +112,8 @@ BEGIN
     d.ada,
     d.metadata,
     t.text,
+    s.summary,
     t.document_metadata,
     sp.x,
     sp.y;
 END; $$ LANGUAGE plpgsql;
-
-
-ALTER TABLE configurations RENAME COLUMN reductor_task_id TO dimensionality_reducer_task_id;
