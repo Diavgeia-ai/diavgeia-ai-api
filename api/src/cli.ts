@@ -1,6 +1,6 @@
 import Logger from './logger';
 import env from 'dotenv';
-import yargs from 'yargs';
+import yargs, { number } from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import path from 'path';
 import TaskConstructor from './tasks/taskConstructor';
@@ -123,7 +123,7 @@ let main = async () => {
       }
     )
     .command(
-      'summarizer',
+      'summarize',
       'Summarize texts',
       (yargs) => {
         return yargs
@@ -245,6 +245,11 @@ let main = async () => {
             description: 'Comma-separated list of decision types',
             demandOption: true,
           })
+          .option('only', {
+            type: 'number',
+            description: 'Only run the first N decisions',
+            optional: true,
+          })
           .option('ingestorImpl', {
             type: 'string',
             description: 'Implementation of the ingestor',
@@ -266,7 +271,7 @@ let main = async () => {
           .option('embedderImpl', {
             type: 'string',
             description: 'Implementation of the embedder',
-            default: 'cohere-one-batch-embedder',
+            default: 'cohere-embedder',
             demandOption: true,
           })
           .option('dimensionalityReducerImpl', {
@@ -279,13 +284,15 @@ let main = async () => {
             type: 'string',
             description: 'Comma-separated list of tasks to skip',
             default: '',
+            demandOption: true,
+            optional: true
           });
       },
       async (argv) => {
         const { name, startDate, endDate, decisionTypes } = argv;
         const { ingestorImpl, textExtractorImpl, summarizerImpl, embedderImpl, dimensionalityReducerImpl } = argv;
-        const { skipList } = argv;
-        let skip = (skipList as string).split(',');
+        const { skip, only } = argv;
+        let skipList = (skip as string).split(',');
         const ingestorConstructor = getTaskImplementation('ingestor', ingestorImpl);
         const textExtractorConstructor = getTaskImplementation('text-extractor', textExtractorImpl);
         const summarizerConstructor = getTaskImplementation('summarizer', summarizerImpl);
@@ -299,13 +306,13 @@ let main = async () => {
         let dimensionalityReducerName = `${name}-dimensionality-reducer`;
 
         const ingestor = ingestorConstructor.create(ingestorName);
-        let ingestorTaskId = await ingestor.start({ startDate, endDate, decisionTypes });
+        let ingestorTaskId = await ingestor.start({ startDate, endDate, decisionTypes, only });
 
         const textExtractor = textExtractorConstructor.create(textExtractorName);
         let textExtractorTaskId = (await textExtractor.start({ ingestorTaskId }));
 
         let summarizerPromise: Promise<string | undefined> = Promise.resolve(undefined);
-        if (!skip.includes('summarizer')) {
+        if (!skipList.includes('summarizer')) {
           const summarizer = summarizerConstructor.create(summarizerName);
           summarizerPromise = summarizer.start({ textExtractorTaskId });
         }

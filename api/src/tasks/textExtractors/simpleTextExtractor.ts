@@ -34,6 +34,7 @@ class SimpleTextExtractor extends TextExtractor {
 
         for (let offset = 0; true; offset += BATCH_SIZE) {
             let inputDocuments = await this.db.query('SELECT id, ada, document_url, metadata FROM decisions WHERE ingestor_task_id = $1 ORDER BY id LIMIT $2 OFFSET $3', [params.ingestorTaskId, BATCH_SIZE, offset]);
+            this.logger.debug(`Fetched ${inputDocuments.rows.length} documents`);
             if (inputDocuments.rows.length === 0) {
                 break;
             }
@@ -87,7 +88,7 @@ class SimpleTextExtractor extends TextExtractor {
             pageTexts.push(textContent.items.map((x) => {
                 if ("str" in x) return x.str;
                 else return ""; // will never happen
-            }).join("\n"));
+            }).join(" "));
         }
 
         if (isWhitespace(pageTexts.join(""))) {
@@ -98,7 +99,7 @@ class SimpleTextExtractor extends TextExtractor {
             documentMetadata.textExtractionFailure = false;
         }
 
-        let text = pageTexts.join("\n\n");
+        let text = pageTexts.join("\n[PAGE_BREAK]\n");
 
         let pdfMetadata = await doc.getMetadata();
         if (pdfMetadata.metadata) {

@@ -134,7 +134,7 @@ export async function generateOpenAIResponse(model: ModelName, prompt: string, t
             let completionResponse = await openai.createCompletion({
                 model,
                 prompt,
-                max_tokens: 8192,
+                max_tokens: 2048,
                 temperature
             });
             textResponse = completionResponse.data.choices[0].text?.trim();

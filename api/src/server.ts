@@ -50,6 +50,9 @@ const emptyResponse = {
 
 const getLatestConfiguration = async () => {
     const res = await db.query('SELECT id FROM configurations ORDER BY id DESC LIMIT 1');
+    if (res.rows.length === 0) {
+        throw new Error("No configuration found");
+    }
     return res.rows[0].id;
 }
 
@@ -100,6 +103,7 @@ app.get('/search', cache(), throttle(throttling), async (req, res) => {
         `SELECT
             ada,
             decision_metadata,
+            summary,
             text,
             document_metadata,
             x, y,

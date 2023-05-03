@@ -29,6 +29,7 @@ class CohereEmbedder extends Embedder {
 
         let failures = 0;
         let embeddingCount = 0;
+        let textsCount = 0;
         for (let offset = 0; true; offset += BATCH_SIZE) {
             let inputDocuments = await this.db.query('SELECT t.id, text, d.metadata AS decision_metadata FROM texts AS t LEFT JOIN decisions AS d ON d.id = t.decision_id WHERE text_extractor_task_id = $1  ORDER BY id LIMIT $2 OFFSET $3', [params.textExtractorTaskId, BATCH_SIZE, offset]);
             if (inputDocuments.rows.length === 0) {
@@ -54,12 +55,13 @@ class CohereEmbedder extends Embedder {
                         seq: index + 1
                     });
                 });
+                textsCount++;
             }
 
             await this.saveEmbeddings(embeddings);
 
-            this.logger.info(`Processed ${offset + embeddings.length} texts with ${embeddingCount} embeddings`);
-            this.updateMetrics({ texts_processed: offset + embeddings.length, failures: failures, embeddings_generated: embeddingCount });
+            this.logger.info(`Processed ${textsCount} texts with ${embeddingCount} embeddings`);
+            this.updateMetrics({ texts_processed: textsCount, failures: failures, embeddings_generated: embeddingCount });
 
             if (process.env.COHERE_RATE_LIMITING === 'true') {
                 await sleep(30 * 1000);
@@ -71,7 +73,7 @@ class CohereEmbedder extends Embedder {
 
     private async getEmbeddings(text: any, decisionMetadata: any): Promise<number[][]> {
         let textToEmbed = this.getTextToEmbed(text, decisionMetadata);
-        let textsToEmbed = textToEmbed.split("\n\n");
+        let textsToEmbed = textToEmbed.split("[PAGE_BREAK]");
         let { value, cost } = await generateCohereEmbeddings(MODEL, textsToEmbed);
         return value;
     }
@@ -83,7 +85,7 @@ class CohereEmbedder extends Embedder {
             subject = '';
         }
 
-        return `${subject}: ${text.text}`
+        return `${subject}:\n${text}`
     }
 
 }

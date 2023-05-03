@@ -6,7 +6,7 @@ import { ModelName } from '../../types';
 const IMPLEMENTATION = "gpt-summarizer";
 const REQUIRED_PARAMS = ['textExtractorTaskId'];
 const MODEL = 'gpt-4';
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 20;
 
 class GptSummarizer extends Summarizer {
     constructor(name: string) {
@@ -32,22 +32,15 @@ class GptSummarizer extends Summarizer {
                 break;
             }
 
-            let summaries: Summary[] = [];
+            let summaryTexts = await Promise.all(inputTexts.rows.map((inputText) => this.getSummary(inputText.text)));
+            let summaries: Summary[] = summaryTexts.filter((s) => s !== null).map((summaryText, index) => {
+                return {
+                    textId: inputTexts.rows[index].id,
+                    summary: summaryText
+                } as Summary;
+            });
 
-            for (let inputText of inputTexts.rows) {
-                let summary = await this.getSummary(inputText.text);
-
-                if (!summary) {
-                    this.logger.warn(`Failed to generate summary for text ${inputText.id}`);
-                    failures++;
-                    continue;
-                }
-
-                summaries.push({
-                    textId: inputText.id,
-                    summary
-                });
-            }
+            failures += summaryTexts.filter((s) => s === null).length;
 
             await this.saveSummaries(summaries);
 
@@ -58,9 +51,26 @@ class GptSummarizer extends Summarizer {
         this.logger.info('Finished ${IMPLEMENTATION}');
     }
 
-    private async getSummary(text: any): Promise<string> {
+    private async getSummary(text: any): Promise<string | null> {
         let prompt = this.getPrompt(text);
-        let { value, cost } = await generateOpenAIResponse(process.env.OPENAI_COMPLETION_MODEL as ModelName, prompt, 0.2)
+        var value = null, cost = null;
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                ({ value, cost } = await generateOpenAIResponse(process.env.OPENAI_COMPLETION_MODEL as ModelName, prompt, 0.2))
+                break;
+            } catch (e: any) {
+                this.logger.error(`Error generating summary: ${e.message}`);
+
+                continue;
+            }
+        }
+
+        if (!value) {
+            this.logger.error(`Failed to generate summary`);
+            return null;
+        }
+
         this.logger.debug(`Summary: ${value}`);
         return value;
     }

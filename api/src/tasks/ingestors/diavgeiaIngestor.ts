@@ -26,6 +26,9 @@ class DiavgeiaIngestor extends Ingestor {
         if (REQUIRED_PARAMS.some((p) => !params[p as keyof typeof this.params])) {
             throw new Error(`Missing required params: ${REQUIRED_PARAMS.join(', ')}`);
         }
+        if (params.only) {
+            this.logger.info(`Only fetching first ${params.only} decisions`);
+        }
 
         const diavgeiaQuery: DiavgeiaQuery = {
             decisionTypeUid: params.decisionTypes.split(","),
@@ -36,16 +39,26 @@ class DiavgeiaIngestor extends Ingestor {
         };
 
         let total = await this.getTotalDecisionCount(diavgeiaQuery);
-        this.logger.info(`${total} total decision for query`);
+        this.logger.info(`${total} total decisions for query`);
 
         for (let page = 0; true; page++) {
-            let decisions = await this.fetchDiavgeiaPage(diavgeiaQuery, page, DIAVGEIA_PAGE_SIZE);
+            let pageSize = DIAVGEIA_PAGE_SIZE;
+            if (params.only && (page + 1) * DIAVGEIA_PAGE_SIZE > params.only) {
+                pageSize = Math.max(0, params.only - page * DIAVGEIA_PAGE_SIZE);
+                if (pageSize === 0) {
+                    this.logger.info(`No more decisions, stopping...`);
+                    break;
+                }
+                this.logger.info(`Only fetching first ${pageSize} decisions of the next page`);
+            }
+
+            let decisions = await this.fetchDiavgeiaPage(diavgeiaQuery, page, pageSize);
             if (decisions.length === 0) {
                 this.logger.info(`No more decisions, stopping...`);
                 break;
             }
 
-            this.saveDecisions(decisions);
+            await this.saveDecisions(decisions);
             let decisionsProcessed = decisions.length + page * DIAVGEIA_PAGE_SIZE;
             this.updateMetrics({
                 decisions_processed: decisionsProcessed,
