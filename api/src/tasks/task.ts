@@ -4,7 +4,7 @@ import path from 'path';
 import { options } from "yargs";
 //@ts-ignore
 import pgvector from 'pgvector/pg';
-import { getDbPool } from "../db";
+import { db } from "../db";
 
 interface TaskFilter {
     type?: string;
@@ -40,7 +40,7 @@ abstract class Task {
         this.name = name;
 
         this.logger = new Logger(implementation);
-        this.db = getDbPool();
+        this.db = db;
     }
 
     public async start(params: object, version?: number): Promise<string> {

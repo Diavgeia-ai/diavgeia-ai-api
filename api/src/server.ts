@@ -8,30 +8,23 @@ import { ValueWithCost } from './types';
 import apicache from 'apicache';
 import path from 'path';
 import dotenv from 'dotenv';
-import { createViewConfiguration, getDbPool } from './db';
-//@ts-ignore
-import pgvector from 'pgvector/pg';
+import { createViewConfiguration, db, getLatestConfiguration } from './db';
 import bodyParser from 'body-parser';
 import { Server } from "socket.io";
 import http from "http";
 import { onConnect } from './chat';
-
+import search, { getQueryEmbedding } from './search';
 
 //TODO: fix this
 dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 
-const EMBEDDING_MODEL = "multilingual-22-12";
 const DEFAULT_RESULT_COUNT = 25;
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { path: "/chat" });
 app.use(bodyParser.json());
-const db = getDbPool();
 
-let getQueryEmbedding = async (query: string): Promise<ValueWithCost<number[]>> => {
-    return generateCohereEmbedding(EMBEDDING_MODEL, query);
-};
 
 let throttling = {
     "rate": "30/m",
@@ -46,27 +39,11 @@ let cache = apicache.options({
     statusCodes: { include: [200] }
 }).middleware
 
-const emptyResponse = {
-    ids: [[]],
-    distances: [[]],
-    metadatas: [[]],
-    documents: [[]]
-};
 
-const getLatestConfiguration = async () => {
-    const res = await db.query('SELECT id FROM configurations ORDER BY id DESC LIMIT 1');
-    if (res.rows.length === 0) {
-        throw new Error("No configuration found");
-    }
-    return res.rows[0].id;
-}
 
 app.get('/search', cache(), throttle(throttling), async (req, res) => {
     let query = req.query.q;
     let n = parseInt(req.query.n as string);
-    let startTime = Date.now();
-    let searchCost = 0;
-
     if (isNaN(n)) {
         n = DEFAULT_RESULT_COUNT;
     }
@@ -81,60 +58,15 @@ app.get('/search', cache(), throttle(throttling), async (req, res) => {
         return;
     }
 
-    let queryToEmbed: string;
-    let whereObj: { [key: string]: any } | undefined;
     try {
-        let { cost, value } = await generateChromaQuery(query);
-        [queryToEmbed, whereObj] = value;
-        searchCost += cost;
+        var searchResults = await search(query, n);
     } catch (e) {
+        console.log(e);
         res.status(500).send({ "error": "Failed to generate query" });
         return;
     }
 
-    console.log(`Query to embed: ${queryToEmbed}`);
-    const { cost, value: embedding } = await getQueryEmbedding(queryToEmbed);
-    searchCost += cost;
-    // decisionType is always "Δ.1" for the demo
-    let whereDecisionType = whereObj.decisionType;
-    delete whereObj.decisionType;
-
-    let where = whereObj;
-    console.log(JSON.stringify(where));
-
-    const configurationId = await getLatestConfiguration();
-    console.log(`Configuration ID: ${configurationId}`);
-    let results = await db.query(
-        `SELECT
-            ada,
-            decision_metadata,
-            summary,
-            text,
-            document_metadata,
-            x, y,
-            embedding <-> $2 AS distance
-        FROM configuration_view($1)
-        ORDER BY embedding <-> $2
-        LIMIT $3`,
-        [configurationId, pgvector.toSql(embedding), n]
-    );
-
-    //re-add the decision type
-    whereObj.decisionType = whereDecisionType;
-
-    let endTime = Date.now();
-    let timeMs = endTime - startTime;
-    res.send({
-        queryMetadata: {
-            resultCount: results.rows.length,
-            semanticQuery: queryToEmbed,
-            whereQuery: whereObj,
-            cost: searchCost,
-            timeMs,
-            queryEmbedding: embedding
-        },
-        results: results.rows
-    });
+    res.send(searchResults);
 });
 
 app.get('/status', async (req, res) => {
@@ -216,7 +148,7 @@ app.post('/configuration', async (req, res) => {
         return;
     }
 
-    let viewId = await createViewConfiguration(db, {
+    let viewId = await createViewConfiguration({
         name,
         ingestorTaskId: ingestorId,
         textExtractorTaskId: textExtractorId,

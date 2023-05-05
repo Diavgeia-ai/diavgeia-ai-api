@@ -4,7 +4,7 @@ import yargs, { number } from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import path from 'path';
 import TaskConstructor from './tasks/taskConstructor';
-import { createViewConfiguration, getDbPool } from './db';
+import { createViewConfiguration } from './db';
 
 env.config({ path: path.resolve(__dirname, '../../.env') });
 
@@ -325,7 +325,7 @@ let main = async () => {
 
         let summarizerTaskId = await summarizerPromise;
 
-        let viewId = await createViewConfiguration(getDbPool(), {
+        let viewId = await createViewConfiguration({
           name,
           ingestorTaskId: ingestorTaskId,
           textExtractorTaskId: textExtractorTaskId,
