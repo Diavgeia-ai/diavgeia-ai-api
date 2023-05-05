@@ -10,8 +10,12 @@
       "rootDir": "./src",
       "resolveJsonModule": true,
       "skipLibCheck": true,
-      "forceConsistentCasingInFileNames": true
+      "forceConsistentCasingInFileNames": true,
     },
+    "module": {
+      "type": "commonjs",
+      "ignoreDynamic": true
+    }, 
     "include": [
       "src/**/*"
     ],

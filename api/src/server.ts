@@ -12,6 +12,9 @@ import { createViewConfiguration, getDbPool } from './db';
 //@ts-ignore
 import pgvector from 'pgvector/pg';
 import bodyParser from 'body-parser';
+import { Server } from "socket.io";
+import http from "http";
+import { onConnect } from './chat';
 
 
 //TODO: fix this
@@ -21,6 +24,8 @@ const EMBEDDING_MODEL = "multilingual-22-12";
 const DEFAULT_RESULT_COUNT = 25;
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { path: "/chat" });
 app.use(bodyParser.json());
 const db = getDbPool();
 
@@ -225,9 +230,11 @@ app.post('/configuration', async (req, res) => {
     });
 });
 
+io.on('connection', onConnect);
+
 const start = async () => {
     let port = 3000;
-    app.listen(port, () => {
+    server.listen(port, () => {
         console.log(`Server started on port ${port}`);
     });
 }
