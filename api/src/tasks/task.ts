@@ -49,6 +49,7 @@ abstract class Task {
             this.version = version;
         } else {
             this.version = await this.getNextVersion();
+            this.logger.info(`No version specified, inferring ${this.version}`);
         }
 
         const existingTask = await this.count({ type: this.type, implementation: this.implementation, name: this.name, version: this.version });
@@ -113,8 +114,8 @@ abstract class Task {
 
     private async getNextVersion(): Promise<number> {
         const result = await this.db.query(
-            'SELECT MAX(version) FROM tasks WHERE type = $1 AND implementation = $2 AND name = $3',
-            [this.type, this.implementation, this.name]
+            'SELECT MAX(version) FROM tasks WHERE name = $1',
+            [this.name]
         );
 
         const maxVersion = result.rows[0].max;

@@ -52,7 +52,7 @@ class SimpleTextExtractor extends TextExtractor {
 
             await this.saveTexts(texts);
 
-            console.log(`Processed ${offset + texts.length} documents`);
+            this.logger.info(`Processed ${offset + texts.length} documents`);
             this.updateMetrics({ documents_processed: offset + texts.length });
         }
 

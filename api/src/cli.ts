@@ -83,14 +83,20 @@ let main = async () => {
             type: 'string',
             description: 'Comma-separated list of decision types',
             demandOption: true,
+          })
+          .option('only', {
+            type: 'number',
+            description: 'Only ingest the first N decisions',
+            optional: true,
+            demandOption: true,
           });
       },
       async (argv) => {
-        const { impl, name, startDate, endDate, decisionTypes } = argv;
+        const { impl, name, startDate, endDate, decisionTypes, only } = argv;
 
         const ingestorConstructor = getTaskImplementation('ingestor', impl);
         const ingestor = ingestorConstructor.create(name);
-        await ingestor.start({ startDate, endDate, decisionTypes });
+        await ingestor.start({ startDate, endDate, decisionTypes, only });
       }
     )
     .command(

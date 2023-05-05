@@ -9,7 +9,6 @@ import { ValueWithCost } from "./types";
 
 dotenv.config();
 const logger = new Logger();
-console.log(`Cohere API key: ${process.env.COHERE_API_KEY}`);
 Cohere.init(process.env.COHERE_API_KEY!);
 
 export type DiavgeiaQuery = {
@@ -23,6 +22,18 @@ export const stringEncodeDiavgeiaQuery = (diavgeiaQuery: DiavgeiaQuery) => {
 
 export const diavgeiaSearchQuery = (diavgeiaQuery: DiavgeiaQuery, page: number, size: number) => {
     return `https://diavgeia.gov.gr/opendata/search/advanced.json?q=${stringEncodeDiavgeiaQuery(diavgeiaQuery)}&page=${page}&size=${size}`;
+}
+
+export const diavgeiaOrganizationUrl = (organizationId: string) => {
+    return `https://diavgeia.gov.gr/opendata/organizations/${organizationId}.json`;
+}
+
+export const diavgeiaSignerUrl = (signerId: string) => {
+    return `https://diavgeia.gov.gr/opendata/signers/${signerId}.json`;
+}
+
+export const diavgeiaUnitUrl = (unitId: string) => {
+    return `https://diavgeia.gov.gr/opendata/units/${unitId}.json`;
 }
 
 export const equalSizes = (embedings: number[][]) => {

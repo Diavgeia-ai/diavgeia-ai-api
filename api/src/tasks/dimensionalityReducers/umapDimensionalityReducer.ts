@@ -62,8 +62,6 @@ class UmapDimensionalityReducer extends DimensionalityReducer {
             return true;
         });
 
-        console.log(result);
-
         return result.map((r, ind) => {
             return {
                 decisionId: rows[ind].decision_id,
