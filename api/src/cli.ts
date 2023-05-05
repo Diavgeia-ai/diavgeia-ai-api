@@ -189,7 +189,7 @@ let main = async () => {
       }
     )
     .command(
-      'dimensionality-reduction',
+      'reduce-dimensions',
       'Reduce the dimensionality of the embeddings to 2D semantic points',
       (yargs) => {
         return yargs

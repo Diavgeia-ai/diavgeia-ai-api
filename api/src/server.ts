@@ -134,6 +134,8 @@ app.get('/search', cache(), throttle(throttling), async (req, res) => {
 
 app.get('/status', async (req, res) => {
     res.send({
+        tasks: (await db.query("SELECT * FROM tasks ORDER BY id DESC")).rows,
+        configurations: (await db.query("SELECT * FROM configurations ORDER BY id DESC")).rows,
     });
 });
 
@@ -156,6 +158,17 @@ app.get('/embed', async (req, res) => {
         query: query,
         embedding: value,
         cost
+    });
+});
+
+app.get('/semantic-points', async (req, res) => {
+    let configurationId = await getLatestConfiguration();
+    let n = parseInt(req.query.n as string);
+    if (isNaN(n)) {
+        n = 500;
+    }
+    res.send({
+        points: (await db.query("SELECT ada, x, y, summary, decision_metadata FROM configuration_view($1) ORDER BY RANDOM() LIMIT $2", [configurationId, n])).rows
     });
 });
 
