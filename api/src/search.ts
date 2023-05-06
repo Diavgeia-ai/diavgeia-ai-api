@@ -55,7 +55,7 @@ const search = async (query: string, n: number) => {
             document_metadata,
             x, y,
             embedding <-> $2 AS distance
-        FROM configuration_view($1)
+        FROM decisions_view($1)
         ORDER BY embedding <-> $2
         LIMIT $3`,
         [configurationId, pgvector.toSql(embedding), n]

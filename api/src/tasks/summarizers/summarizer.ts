@@ -10,10 +10,11 @@ export default abstract class Summarizer extends Task {
         this.logger.info(`Saving ${summaries.length} summaries...`);
         await this.db.query('START TRANSACTION');
         for (let summary of summaries) {
-            await this.db.query('INSERT INTO summaries (summarizer_task_id, text_id, summary) VALUES ($1, $2, $3)', [
+            await this.db.query('INSERT INTO summaries (summarizer_task_id, text_id, summary, extracted_data) VALUES ($1, $2, $3, $4)', [
                 this.id,
                 summary.textId,
                 summary.summary,
+                summary.extractedData
             ]);
         }
         await this.db.query('COMMIT');

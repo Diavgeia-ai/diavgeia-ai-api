@@ -1,5 +1,6 @@
 import { Socket } from "socket.io";
 import Logger from "./logger";
+import { badChatGPTAPIImport } from "./utils";
 
 let getSystemMessage = () => {
     return `
@@ -58,19 +59,7 @@ let tryCompleteJSON = (text: string) => {
 }
 
 export const onConnect = async (socket: Socket) => {
-    // ugh
-    const importDynamic = new Function('modulePath', 'return import(modulePath)',);
-    const { ChatGPTAPI } = await importDynamic("chatgpt");
-
-    const api = new ChatGPTAPI({
-        apiKey: process.env.OPENAI_API_KEY as string,
-        completionParams: {
-            model: 'gpt-4',
-            temperature: 0.1,
-            top_p: 0.8
-        },
-        systemMessage: getSystemMessage()
-    })
+    const api = await badChatGPTAPIImport(getSystemMessage());
 
     logger.info("New connection");
     socket.on("message", async (message) => {
@@ -91,7 +80,17 @@ export const onConnect = async (socket: Socket) => {
             }
         });
 
-        let response = JSON.parse(aiOutcome.text);
+        try {
+            var response = JSON.parse(aiOutcome.text);
+        } catch (e) {
+            socket.send({
+                error: "Unable to parse GPT response",
+                sender: "bot",
+                inProgress: false
+            });
+            return;
+        }
+
         logger.info(`Completed response: ${response.text.text}`);
 
         if (response.type === "response") {

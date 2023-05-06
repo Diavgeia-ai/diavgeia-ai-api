@@ -181,6 +181,7 @@ class DiavgeiaIngestor extends Ingestor {
     }
 
     private extractData(diavgeiaDecisionObj: { [key: string]: any }): Decision {
+        console.log(diavgeiaDecisionObj);
         let {
             protocolNumber,
             subject,
@@ -193,8 +194,13 @@ class DiavgeiaIngestor extends Ingestor {
             ada,
             publishTimestamp,
             submissionTimestamp,
-            documentUrl
+            documentUrl,
+            awardAmount
         } = diavgeiaDecisionObj;
+
+        if (awardAmount.amount) {
+            awardAmount = awardAmount.amount;
+        }
 
         let {
             financialYear,
@@ -222,7 +228,8 @@ class DiavgeiaIngestor extends Ingestor {
             financialYear,
             budgetType,
             amountWithVAT,
-            amountWithKae
+            amountWithKae,
+            awardAmount
         };
 
         return {

@@ -123,6 +123,7 @@ CREATE TABLE summaries (
   text_id INTEGER REFERENCES texts(id) ON DELETE CASCADE,
   summarizer_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
   summary TEXT,
+  extracted_data JSONB,
   created_at TIMESTAMP NOT NULL DEFAULT now(),
   updated_at TIMESTAMP NOT NULL DEFAULT now(),
   UNIQUE(summarizer_task_id, text_id)
@@ -174,6 +175,7 @@ RETURNS TABLE (
   decision_metadata JSONB,
   text TEXT,
   summary TEXT,
+  extracted_data JSONB,
   document_metadata JSONB,
   embedding VECTOR,
   x FLOAT,
@@ -186,10 +188,11 @@ BEGIN
   )
   SELECT
     d.ada,
+    d.organization_diavgeia_id AS organization_id,
     d.metadata AS decision_metadata,
-    d.organization_id,
     t.text,
     s.summary,
+    s.extracted_data AS extracted_data,
     t.document_metadata,
     AVG(e.embedding) AS embedding,
     sp.x,
@@ -205,9 +208,10 @@ BEGIN
   GROUP BY
     d.ada,
     d.metadata,
-    d.organization_id,
+    d.organization_diavgeia_id,
     t.text,
     s.summary,
+    s.extracted_data,
     t.document_metadata,
     sp.x,
     sp.y;
@@ -223,7 +227,7 @@ RETURNS TABLE (
 BEGIN
   RETURN QUERY
   WITH c AS (
-    SELECT * FROM configurations WHERE id = configuration_id
+    SELECT * FROM configurations WHERE configurations.id = configuration_id
   )
   SELECT
     o.diavgeia_id AS id,
@@ -247,7 +251,7 @@ RETURNS TABLE (
 BEGIN
   RETURN QUERY
   WITH c AS (
-    SELECT * FROM configurations WHERE id = configuration_id
+    SELECT * FROM configurations WHERE configurations.id = configuration_id
   )
   SELECT
     s.diavgeia_id AS id,
@@ -271,7 +275,7 @@ RETURNS TABLE (
 BEGIN
   RETURN QUERY
   WITH c AS (
-    SELECT * FROM configurations WHERE id = configuration_id
+    SELECT * FROM configurations WHERE configurations.id = configuration_id
   )
   SELECT
     u.diavgeia_id AS id,
@@ -292,7 +296,7 @@ RETURNS TABLE (
 BEGIN
   RETURN QUERY
   WITH c AS (
-    SELECT * FROM configurations WHERE id = configuration_id
+    SELECT * FROM configurations WHERE configurations.id = configuration_id
   )
   SELECT
     du.decision_ada AS decision_ada,
@@ -311,7 +315,7 @@ RETURNS TABLE (
 BEGIN
   RETURN QUERY
   WITH c AS (
-    SELECT * FROM configurations WHERE id = configuration_id
+    SELECT * FROM configurations WHERE configurations.id = configuration_id
   )
   SELECT
     ds.decision_ada AS decision_ada,

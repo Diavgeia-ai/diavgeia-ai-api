@@ -1,12 +1,16 @@
 import Summarizer from './summarizer';
 import { Summary } from './summary';
-import { generateOpenAIResponse } from '../../utils';
+import { generateChatGPTResponse } from '../../utils';
 import { ModelName } from '../../types';
+import { RateLimiter } from 'limiter';
 
 const IMPLEMENTATION = "gpt-summarizer";
 const REQUIRED_PARAMS = ['textExtractorTaskId'];
-const MODEL = 'gpt-4';
 const BATCH_SIZE = 20;
+const openAiLimiter = new RateLimiter({
+    tokensPerInterval: 4,
+    interval: 1000 * 60
+});
 
 class GptSummarizer extends Summarizer {
     constructor(name: string) {
@@ -14,7 +18,7 @@ class GptSummarizer extends Summarizer {
     }
 
     protected async run(params: any): Promise<void> {
-        this.logger.debug('Starting ${IMPLEMENTATION}');
+        this.logger.debug(`Starting ${IMPLEMENTATION}`);
         if (!this.params) {
             throw new Error(`${IMPLEMENTATION} params are not set`);
         }
@@ -27,20 +31,21 @@ class GptSummarizer extends Summarizer {
 
         let failures = 0;
         for (let offset = 0; true; offset += BATCH_SIZE) {
-            let inputTexts = await this.db.query('SELECT t.id, text, d.metadata AS decision_metadata FROM texts AS t LEFT JOIN decisions AS d ON d.id = t.decision_id WHERE text_extractor_task_id = $1  ORDER BY id LIMIT $2 OFFSET $3', [params.textExtractorTaskId, BATCH_SIZE, offset]);
+            let inputTexts = await this.db.query('SELECT t.id, d.ada AS ada, text, d.metadata AS decision_metadata FROM texts AS t LEFT JOIN decisions AS d ON d.id = t.decision_id WHERE text_extractor_task_id = $1  ORDER BY id LIMIT $2 OFFSET $3', [params.textExtractorTaskId, BATCH_SIZE, offset]);
             if (inputTexts.rows.length === 0) {
                 break;
             }
 
-            let summaryTexts = await Promise.all(inputTexts.rows.map((inputText) => this.getSummary(inputText.text)));
-            let summaries: Summary[] = summaryTexts.filter((s) => s !== null).map((summaryText, index) => {
+            let summaryObjs = await Promise.all(inputTexts.rows.map((inputText) => this.getSummary(inputText.ada, inputText.text)));
+            let summaries: Summary[] = summaryObjs.filter((s) => s !== null).map((summary, index) => {
                 return {
                     textId: inputTexts.rows[index].id,
-                    summary: summaryText
-                } as Summary;
+                    summary: summary.summary,
+                    extractedData: summary
+                };
             });
 
-            failures += summaryTexts.filter((s) => s === null).length;
+            failures += summaryObjs.filter((s) => s === null).length;
 
             await this.saveSummaries(summaries);
 
@@ -51,13 +56,15 @@ class GptSummarizer extends Summarizer {
         this.logger.info('Finished ${IMPLEMENTATION}');
     }
 
-    private async getSummary(text: any): Promise<string | null> {
-        let prompt = this.getPrompt(text);
+    private async getSummary(ada: string, text: any): Promise<any | null> {
+        let systemPrompt = this.getPrompt(ada);
+        let userPrompt = `Aκολουθεί το κείμενο της πράξης με ΑΔΑ ${ada}: \n----\n${text}`;
         var value = null, cost = null;
 
         for (let attempt = 0; attempt < 3; attempt++) {
             try {
-                ({ value, cost } = await generateOpenAIResponse(process.env.OPENAI_COMPLETION_MODEL as ModelName, prompt, 0.2))
+                await openAiLimiter.removeTokens(1);
+                ({ value, cost } = await generateChatGPTResponse(systemPrompt, userPrompt));
                 break;
             } catch (e: any) {
                 this.logger.error(`Error generating summary: ${e.message}`);
@@ -71,20 +78,45 @@ class GptSummarizer extends Summarizer {
             return null;
         }
 
+
+        try {
+            var parsedSummary = JSON.parse(value);
+        } catch (e: any) {
+            this.logger.error(`Failed to parse summary: ${value}`);
+            return null;
+        }
+
+        if (!parsedSummary.summary) {
+            this.logger.error(`Summary is missing summary field: ${value}`);
+            return null;
+        }
+
         this.logger.debug(`Summary: ${value}`);
-        return value;
+        return parsedSummary;
     }
 
-    private getPrompt(text: any): string {
+    private getPrompt(ada: string): string {
         return `
-            Παρακάτω το κείμενο μιας πράξης αναρτημένης στο πρόγραμμα Δι@υγεια. Γράψε μια πολύ σύντομη περίληψη σε 1 (το πολύ 2) προτάσεις.
-            Η περίλιψη θα φαίνεται στα αποτελέσματα μιας μηχανής αναζήτησης, οπότε υποκείμενα και περιττές φράσεις όπως "Η πράξη περιγράφει..." πρέπει να παραλείπονται.
-            Καλύτερο είναι η περίληψη να ξεκινάει με ένα ρήμα, για παράδειγμα "Εγκρίνεται..." ή "Ανατίθεται..." ή "Αποφασίζεται..."
-            Tυχόν αναφορές σε νομους και παλαιότερες αποφάσεις πάνω στις οποίες βασίζεται η πράξη πρέπει να παραλείπονται.
-            ---
-            ${text}
-            ---
-            Περίληψη:`;
+            Είσαι σύστημα που εξάγει δεδομένα και περιλήψεις από το κείμενο πράξεων αναρτημένες στη διαύγεια.
+            Ο χρήστης σου δίνει κείμενα πράξεων, και εσύ απαντάς.
+            All your responses will be in JSON, in the format that I will describe.
+            
+            Τα δεδομένα που θέλω να εξάγεις, οι τύποι τους και οι περιγραφές τους είναι τα εξής:
+            - lawRef: string[] - οι νόμοι στους οποίους αναφέρεται η πράξη (π.χ. "Ν. 1234/2021")
+            - adaRef: string[] - Οι ΑΔΑ (αριθμοί διαδυκτιακής ανάρτησης) άλλων πράξεων στις οποίες αναφέρεται αυτή η πράξη (π.χ. "ΒΓΔ23ΟΞΞ-ΓΞΔ")
+            - summary: string - Περίληψη της πράξης, περισσότερα για αυτό παρακάτω.
+            - awardAmount: number - Το χρηματικό ποσό του οποίου επωφελείται ο δικαιούχος σε ευρώ
+            - beneficiary: string - Η εταιρία, το πρόσωπο ή οργανισμός που επωφελείται του ποσού.
+
+            Καθένα από τα παραπάνω μπορεί να είναι και null. Τα τελευταία δύο πρέπει να είναι null αν η πράξη δε δίνει χρήματα σε κάποιον.
+            
+            Περίληψη: μια σύντομη περίληψη σε 1 πρόταση στα ελληνικά.
+            Περιττές φράσεις όπως "Η πράξη περιγράφει..." πρέπει να παραλείπονται.
+            Η περίληψη να ξεκινάει με ένα ρήμα, για παράδειγμα "Εγκρίνεται..." ή "Ανατίθεται..." ή "Αποφασίζεται..."
+            Tυχόν αναφορές σε νομους και παλαιότερες αποφάσεις πάνω στις οποίες βασίζεται η πράξη πρέπει να παραλείπονται από τη περίληψη.
+
+            Your response must be based solely on the text given. Respond only in JSON in the format described above.
+            `;
     }
 
 }

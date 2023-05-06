@@ -125,32 +125,49 @@ export const modelTokenPriceUsd = {
 
 const openai = getOpenAIClient();
 
+export async function generateChatGPTResponse(systemMessage: string, userMessage: string): Promise<ValueWithCost<string>> {
+    let api = await badChatGPTAPIImport(systemMessage);
+
+    var cost = 0;
+    let message = userMessage.slice(0, 6000);
+    logger.info(`Requesting ChatGPT response at time ${new Date().toISOString()}`);
+    var chatResponse = await openai.createChatCompletion({
+        model: "gpt-4",
+        messages: [{
+            role: "system",
+            content: systemMessage
+        }, {
+            role: "user",
+            content: message,
+        }],
+        temperature: 0.1,
+        max_tokens: 600,
+    });
+    var textResponse = chatResponse.data.choices[0].message?.content?.trim();
+    let tokensUsed = chatResponse.data.usage?.total_tokens || 0;
+
+    //TODO: calculate cost correctly – this is a rough estimate
+    cost = 0.05 / 1000 / 3 * tokensUsed;
+
+    UsageMonitor.addCost(cost);
+    return {
+        value: textResponse as string,
+        cost: cost
+    };
+}
+
 export async function generateOpenAIResponse(model: ModelName, prompt: string, temperature: number): Promise<ValueWithCost<string>> {
     try {
         var textResponse: string | undefined;
         var tokensUsed: number | undefined;
-        if (model === "gpt-4") {
-            var chatResponse = await openai.createChatCompletion({
-                model,
-                messages: [{
-                    role: "user",
-                    content: prompt.split(' ').slice(0, 400).join(' ')
-                }],
-                max_tokens: 512,
-                temperature
-            });
-            textResponse = chatResponse.data.choices[0].message?.content?.trim();
-            tokensUsed = chatResponse.data.usage?.total_tokens;
-        } else {
-            let completionResponse = await openai.createCompletion({
-                model,
-                prompt,
-                max_tokens: 2048,
-                temperature
-            });
-            textResponse = completionResponse.data.choices[0].text?.trim();
-            tokensUsed = completionResponse.data.usage?.total_tokens;
-        }
+        let completionResponse = await openai.createCompletion({
+            model,
+            prompt,
+            max_tokens: 2048,
+            temperature
+        });
+        textResponse = completionResponse.data.choices[0].text?.trim();
+        tokensUsed = completionResponse.data.usage?.total_tokens;
     } catch (e: any) {
         console.log(e.response.data);
         throw new Error("OpenAI failed to generate query");
@@ -169,3 +186,18 @@ export async function generateOpenAIResponse(model: ModelName, prompt: string, t
     }
 }
 
+export const badChatGPTAPIImport = async (systemMessage: string) => {
+    // ugh
+    const importDynamic = new Function('modulePath', 'return import(modulePath)',);
+    const { ChatGPTAPI } = await importDynamic("chatgpt");
+    const api = new ChatGPTAPI({
+        apiKey: process.env.OPENAI_API_KEY as string,
+        completionParams: {
+            model: process.env.OPENAI_CHAT_MODEL,
+            temperature: 0.1,
+            top_p: 0.8
+        },
+        systemMessage: systemMessage
+    })
+    return api;
+}

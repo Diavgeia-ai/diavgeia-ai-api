@@ -43,10 +43,11 @@ export default abstract class Ingestor extends Task {
         this.logger.info(`Saving ${units.length} units...`);
         for (let unit of units) {
             await this.db.query(
-                'INSERT INTO units (ingestor_task_id, diavgeia_id, name, raw_data) VALUES ($1, $2, $3, $4) ', [
+                'INSERT INTO units (ingestor_task_id, diavgeia_id, name, category, raw_data) VALUES ($1, $2, $3, $4, $5) ', [
                 this.id,
                 unit.diavgeiaId,
                 unit.name,
+                unit.category,
                 unit.rawData,
             ]);
         }
@@ -56,11 +57,12 @@ export default abstract class Ingestor extends Task {
         this.logger.info(`Saving ${signers.length} signers...`);
         for (let signer of signers) {
             await this.db.query(
-                'INSERT INTO signers (ingestor_task_id, diavgeia_id, first_name, last_name, raw_data) VALUES ($1, $2, $3, $4, $5) ', [
+                'INSERT INTO signers (ingestor_task_id, diavgeia_id, first_name, last_name, organization_diavgeia_id, raw_data) VALUES ($1, $2, $3, $4, $5, $6) ', [
                 this.id,
                 signer.diavgeiaId,
                 signer.firstName,
                 signer.lastName,
+                signer.organizationId,
                 signer.rawData,
             ]);
         }
