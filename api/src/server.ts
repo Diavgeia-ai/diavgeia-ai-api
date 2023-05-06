@@ -67,6 +67,11 @@ app.get('/search', throttle(throttling), async (req, res) => {
         return;
     }
 
+    if (!searchResults) {
+        res.status(500).send({ "error": "Failed to generate query" });
+        return;
+    }
+
     res.send(searchResults);
 });
 

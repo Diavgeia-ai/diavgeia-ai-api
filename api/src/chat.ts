@@ -131,6 +131,16 @@ export const onConnect = async (socket: Socket) => {
                 });
 
                 let results = await search(response.query, 5);
+                if (!results) {
+                    logger.error(`Unable to search for ${response.query}`);
+                    socket.send({
+                        searchQueries,
+                        error: "Unable to search",
+                        sender: "bot",
+                        inProgress: false
+                    });
+                    return;
+                }
                 let selectedResults = {
                     results: results.results.map((result) => {
                         return {

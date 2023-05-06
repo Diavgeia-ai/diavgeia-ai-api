@@ -119,7 +119,7 @@ export const modelTokenPriceUsd = {
     // From https://openai.com/pricing/, https://cohere.ai/pricing
     "text-embedding-ada-002": 0.0004 / 1000,
     "multilingual-22-12": 0.0002 / 1000,
-    "text-davinci-003": 0.06 / 1000,
+    "text-davinci-003": 0.0004 / 1000,
     "gpt-4": 0.03 / 1000
 }
 
@@ -176,8 +176,8 @@ export async function generateOpenAIResponse(model: ModelName, prompt: string, t
     if (!textResponse || !tokensUsed) {
         throw new Error("OpenAI returned an empty response");
     }
-
     let cost = tokensUsed * modelTokenPriceUsd[model];
+    logger.info(`Used ${tokensUsed} tokens for OpenAI response, cost ${cost} USD`)
     UsageMonitor.addCost(cost);
 
     return {
