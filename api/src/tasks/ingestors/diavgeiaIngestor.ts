@@ -181,7 +181,6 @@ class DiavgeiaIngestor extends Ingestor {
     }
 
     private extractData(diavgeiaDecisionObj: { [key: string]: any }): Decision {
-        console.log(diavgeiaDecisionObj);
         let {
             protocolNumber,
             subject,
@@ -198,7 +197,7 @@ class DiavgeiaIngestor extends Ingestor {
             awardAmount
         } = diavgeiaDecisionObj;
 
-        if (awardAmount.amount) {
+        if (awardAmount && awardAmount.amount) {
             awardAmount = awardAmount.amount;
         }
 

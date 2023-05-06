@@ -322,6 +322,7 @@ let main = async () => {
           const summarizer = summarizerConstructor.create(summarizerName);
           summarizerPromise = summarizer.start({ textExtractorTaskId });
         }
+        let summarizerTaskId = await summarizerPromise;
 
         const embedder = embedderConstructor.create(embedderName);
         let embedderTaskId = (await embedder.start({ textExtractorTaskId }));
@@ -329,7 +330,6 @@ let main = async () => {
         const dimensionalityReducer = dimensionalityReducerConstructor.create(dimensionalityReducerName);
         let dimensionalityReducerTaskId = await dimensionalityReducer.start({ embedderTaskId });
 
-        let summarizerTaskId = await summarizerPromise;
 
         let viewId = await createViewConfiguration({
           name,

@@ -14,6 +14,7 @@ import { Server } from "socket.io";
 import http from "http";
 import { onConnect } from './chat';
 import search, { getQueryEmbedding } from './search';
+import Logger from './logger';
 
 //TODO: fix this
 dotenv.config({ path: path.resolve(__dirname, '../../.env') })
@@ -41,7 +42,7 @@ let cache = apicache.options({
 
 
 
-app.get('/search', cache(), throttle(throttling), async (req, res) => {
+app.get('/search', throttle(throttling), async (req, res) => {
     let query = req.query.q;
     let n = parseInt(req.query.n as string);
     if (isNaN(n)) {
@@ -101,11 +102,12 @@ app.get('/embed', async (req, res) => {
 app.get('/semantic-points', async (req, res) => {
     let configurationId = await getLatestConfiguration();
     let n = parseInt(req.query.n as string);
+    console.log(`Getting ${n} points`);
     if (isNaN(n)) {
         n = 500;
     }
     res.send({
-        points: (await db.query("SELECT ada, x, y, summary, decision_metadata FROM configuration_view($1) ORDER BY RANDOM() LIMIT $2", [configurationId, n])).rows
+        points: (await db.query("SELECT ada, x, y, summary, decision_metadata FROM decisions_view($1) ORDER BY RANDOM() LIMIT $2", [configurationId, n])).rows
     });
 });
 

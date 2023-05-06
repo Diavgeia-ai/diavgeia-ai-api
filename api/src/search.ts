@@ -31,7 +31,6 @@ const search = async (query: string, n: number) => {
         searchCost += cost;
     } catch (e) {
         throw new Error("Failed to generate query");
-        return;
     }
 
     console.log(`Query to embed: ${queryToEmbed}`);
@@ -51,12 +50,13 @@ const search = async (query: string, n: number) => {
             ada,
             decision_metadata,
             summary,
+            extracted_data,
             text,
             document_metadata,
             x, y,
             embedding <-> $2 AS distance
         FROM decisions_view($1)
-        ORDER BY embedding <-> $2
+        ORDER BY embedding <#> $2
         LIMIT $3`,
         [configurationId, pgvector.toSql(embedding), n]
     );

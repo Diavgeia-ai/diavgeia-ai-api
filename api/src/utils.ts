@@ -195,8 +195,11 @@ export const badChatGPTAPIImport = async (systemMessage: string) => {
         completionParams: {
             model: process.env.OPENAI_CHAT_MODEL,
             temperature: 0.1,
-            top_p: 0.8
+            top_p: 0.8,
         },
+        maxModelTokens: 7000,
+        debug: true,
+
         systemMessage: systemMessage
     })
     return api;
