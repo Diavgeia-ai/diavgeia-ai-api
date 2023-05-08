@@ -14,11 +14,12 @@ export default abstract class Ingestor extends Task {
         for (let decision of decisions) {
             console.log("Inserting ada ", decision.ada, " into db");
             await this.db.query(
-                'INSERT INTO decisions (ingestor_task_id, ada, document_url, metadata, organization_diavgeia_id) VALUES ($1, $2, $3, $4, $5)', [
+                'INSERT INTO decisions (ingestor_task_id, ada, document_url, metadata, issue_date, organization_diavgeia_id) VALUES ($1, $2, $3, $4, $5, $6)', [
                 this.id,
                 decision.ada,
                 decision.documentUrl,
                 decision.metadata,
+                decision.issueDate,
                 decision.organizationDiavgeiaId,
             ]);
         }

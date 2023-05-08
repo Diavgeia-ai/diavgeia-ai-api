@@ -40,6 +40,7 @@ class GptSummarizer extends Summarizer {
             let summaries: Summary[] = summaryObjs.filter((s) => s !== null).map((summary, index) => {
                 return {
                     textId: inputTexts.rows[index].id,
+                    decisionAda: inputTexts.rows[index].ada,
                     summary: summary.summary,
                     extractedData: summary
                 };

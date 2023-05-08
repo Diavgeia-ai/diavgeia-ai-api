@@ -13,7 +13,7 @@ import bodyParser from 'body-parser';
 import { Server } from "socket.io";
 import http from "http";
 import { onConnect } from './chat';
-import search, { getQueryEmbedding } from './search';
+import { search, getQueryEmbedding, getExplanation, expandDecisions } from './search';
 import Logger from './logger';
 
 //TODO: fix this
@@ -60,7 +60,7 @@ app.get('/search', throttle(throttling), async (req, res) => {
     }
 
     try {
-        var searchResults = await search(query, n);
+        var searchResults = await search(query, n, { expandRelations: true });
     } catch (e) {
         console.log(e);
         res.status(500).send({ "error": "Failed to generate query" });
@@ -75,10 +75,64 @@ app.get('/search', throttle(throttling), async (req, res) => {
     res.send(searchResults);
 });
 
+app.get('/decision/:ada', async (req, res) => {
+    let ada = req.params.ada;
+
+    if (ada === undefined) {
+        res.status(400).send({ "error": "Missing ada" });
+        return;
+    }
+    let configurationId = await getLatestConfiguration();
+
+    try {
+        var { rows } = await db.query("SELECT * FROM decisions_view($1) WHERE ada = $2", [configurationId, ada]);
+    } catch (e) {
+        console.log(e);
+        res.status(500).send({ "error": "Failed to get decision" });
+        return;
+    }
+
+    if (rows.length === 0) {
+        res.status(404).send({ "error": "Decision not found" });
+        return;
+    }
+
+    if (rows.length > 1) {
+        res.status(500).send({ "error": "Multiple decisions found" });
+        return;
+    }
+
+    await expandDecisions(rows, configurationId);
+
+    res.send(rows[0]);
+});
+
 app.get('/status', async (req, res) => {
     res.send({
         tasks: (await db.query("SELECT * FROM tasks ORDER BY id DESC")).rows,
         configurations: (await db.query("SELECT * FROM configurations ORDER BY id DESC")).rows,
+    });
+});
+
+app.get('/query-explanation', async (req, res) => {
+    let query: string | undefined = req.query.q as string;
+    if (query === undefined) {
+        res.status(400).send({ "error": "Missing query" });
+        return;
+    }
+
+    try {
+        var { value, cost } = await getExplanation(query);
+        var explanation = value;
+    } catch (e) {
+        console.log(e);
+        res.status(500).send({ "error": "Failed to generate query" });
+        return;
+    }
+
+    res.send({
+        explanation,
+        cost
     });
 });
 

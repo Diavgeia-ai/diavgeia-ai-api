@@ -1,7 +1,7 @@
 import { getOpenAIClient } from "./utils";
-import { decisionTypes } from "./decisionTypes";
+import { decisionTypes } from "./diavgeiaTypes";
 import { ModelName, ValueWithCost } from "./types";
-import { generateOpenAIResponse } from "./utils";
+import { generateOpenAICompletion } from "./utils";
 import Logger from "./logger";
 
 const METADATA_FIELDS = ["issueDate", "amountWithVAT", "decisionType"];
@@ -60,7 +60,7 @@ export async function generateChromaQuery(textQuery: string): Promise<ValueWithC
 
     let prompt = getQueryPrompt(textQuery);
 
-    let { value: textResponse, cost } = await generateOpenAIResponse(MODEL, prompt, 0.1);
+    let { value: textResponse, cost } = await generateOpenAICompletion(MODEL, prompt, 0.1);
 
     if (!textResponse) {
         throw new Error("OpenAI returned an empty response");

@@ -15,8 +15,9 @@ export default abstract class Embedder extends Task {
         this.logger.info(`Saving ${embeddings.length} embeddings...`);
         await client.query('START TRANSACTION');
         for (let embedding of embeddings) {
-            await client.query('INSERT INTO embeddings (embedder_task_id, text_id, embedding_seq, embedding) VALUES ($1, $2, $3, $4)', [
+            await client.query('INSERT INTO embeddings (embedder_task_id, decision_ada, text_id, embedding_seq, embedding) VALUES ($1, $2, $3, $4, $5)', [
                 this.id,
+                embedding.decisionAda,
                 embedding.textId,
                 embedding.seq,
                 pgvector.toSql(embedding.embedding)

@@ -181,63 +181,34 @@ class DiavgeiaIngestor extends Ingestor {
     }
 
     private extractData(diavgeiaDecisionObj: { [key: string]: any }): Decision {
-        let {
-            protocolNumber,
-            subject,
-            issueDate,
-            organizationId,
-            signerIds,
-            unitIds,
-            decisionTypeId,
-            thematicCategoryIds,
-            ada,
-            publishTimestamp,
-            submissionTimestamp,
-            documentUrl,
-            awardAmount
-        } = diavgeiaDecisionObj;
+        let awardAmount = null;
 
-        if (awardAmount && awardAmount.amount) {
-            awardAmount = awardAmount.amount;
+        // Try pulling extraFieldValues.awardAmount.award two levels up (if it is in EUR)
+        if (diavgeiaDecisionObj.extraFieldValues
+            && diavgeiaDecisionObj.extraFieldValues.awardAmount) {
+            if (diavgeiaDecisionObj.extraFieldValues.awardAmount.currency != "EUR") {
+                this.logger.warn(`Award amount currency is not EUR, but in ${diavgeiaDecisionObj.extraFieldValues.awardAmount.currency}`);
+            } else {
+                diavgeiaDecisionObj.awardAmount = diavgeiaDecisionObj.extraFieldValues.awardAmount.amount;
+            }
         }
 
-        let {
-            financialYear,
-            budgetType,
-            amountWithVAT,
-            amountWithKae
-        } = diavgeiaDecisionObj.extraFieldValues;
-
-        if (!documentUrl) {
-            documentUrl = `https://diavgeia.gov.gr/doc/${ada}`;
+        if (!diavgeiaDecisionObj.documentUrl) {
+            // Infer URL, because it's sometimes missing
+            diavgeiaDecisionObj.documentUrl = `https://diavgeia.gov.gr/doc/${diavgeiaDecisionObj.ada}`;
         }
+        let documentUrl = diavgeiaDecisionObj.documentUrl;
 
-        let metadata = {
-            protocolNumber,
-            subject,
-            issueDate,
-            organizationId,
-            signerIds,
-            unitIds,
-            decisionTypeId,
-            thematicCategoryIds,
-            ada,
-            publishTimestamp,
-            submissionTimestamp,
-            financialYear,
-            budgetType,
-            amountWithVAT,
-            amountWithKae,
-            awardAmount
-        };
+        let issueDate = new Date(diavgeiaDecisionObj.issueDate);
 
         return {
-            ada,
+            ada: diavgeiaDecisionObj.ada,
             documentUrl,
-            metadata,
-            organizationDiavgeiaId: organizationId,
-            signerIds,
-            unitIds,
+            metadata: diavgeiaDecisionObj,
+            organizationDiavgeiaId: diavgeiaDecisionObj.organizationId,
+            signerIds: diavgeiaDecisionObj.signerIds,
+            unitIds: diavgeiaDecisionObj.unitIds,
+            issueDate
         };
     }
 

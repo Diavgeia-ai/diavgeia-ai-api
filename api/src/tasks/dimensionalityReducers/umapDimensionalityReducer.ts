@@ -29,18 +29,20 @@ class UmapDimensionalityReducer extends DimensionalityReducer {
             //TODO: this query may be slow as things scale; it can be optimized
             `SELECT
                 decision_id,
+                decision_ada,
                 AVG(embedding) AS embedding
             FROM (
                 SELECT 
                     e.id AS embedding_id,
                     embedding,
-                    d.id AS decision_id
+                    d.id AS decision_id,
+                    d.ada AS decision_ada
                 FROM embeddings AS e
                 LEFT JOIN texts AS t ON t.id = e.text_id
                 LEFT JOIN decisions AS d ON d.id = t.decision_id
                 WHERE embedder_task_id = $1
             ) AS emb
-            GROUP BY decision_id
+            GROUP BY decision_id, emb.decision_ada
             ORDER BY RANDOM() LIMIT $2
             `,
             [params.embedderTaskId, SAMPLE_SIZE]);
@@ -58,13 +60,16 @@ class UmapDimensionalityReducer extends DimensionalityReducer {
     private async getSemanticPoints(rows: any[]): Promise<SemanticPoint[]> {
         const umap = new UMAP();
         const result = await umap.fitAsync(rows, epochNumber => {
-            this.logger.info(`Epoch ${epochNumber} complete.`);
+            if (epochNumber % 50 === 0) {
+                this.logger.info(`Epoch ${epochNumber} complete.`);
+            }
             return true;
         });
 
         return result.map((r, ind) => {
             return {
                 decisionId: rows[ind].decision_id,
+                decisionAda: rows[ind].decision_ada,
                 x: r[0],
                 y: r[1]
             }

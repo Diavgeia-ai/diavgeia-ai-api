@@ -119,20 +119,25 @@ export const modelTokenPriceUsd = {
     // From https://openai.com/pricing/, https://cohere.ai/pricing
     "text-embedding-ada-002": 0.0004 / 1000,
     "multilingual-22-12": 0.0002 / 1000,
-    "text-davinci-003": 0.0004 / 1000,
-    "gpt-4": 0.03 / 1000
+    "text-davinci-003": 0.02 / 1000,
+    "code-davinci-002": 0.02 / 1000,
+    "gpt-4": 0.03 / 1000,
+    "gpt-3.5-turbo": 0.002 / 1000
 }
 
 const openai = getOpenAIClient();
 
-export async function generateChatGPTResponse(systemMessage: string, userMessage: string): Promise<ValueWithCost<string>> {
+export async function generateChatGPTResponse(systemMessage: string, userMessage: string, model: ModelName = "gpt-4"): Promise<ValueWithCost<string>> {
     let api = await badChatGPTAPIImport(systemMessage);
 
     var cost = 0;
-    let message = userMessage.slice(0, 6000);
+    if (userMessage.length > 8000) {
+        logger.warn(`User message too long: ${userMessage.length}`);
+    }
+    let message = userMessage.slice(0, 8000);
     logger.info(`Requesting ChatGPT response at time ${new Date().toISOString()}`);
     var chatResponse = await openai.createChatCompletion({
-        model: "gpt-4",
+        model,
         messages: [{
             role: "system",
             content: systemMessage
@@ -147,7 +152,7 @@ export async function generateChatGPTResponse(systemMessage: string, userMessage
     let tokensUsed = chatResponse.data.usage?.total_tokens || 0;
 
     //TODO: calculate cost correctly – this is a rough estimate
-    cost = 0.05 / 1000 / 3 * tokensUsed;
+    cost = modelTokenPriceUsd[model] * tokensUsed;
 
     UsageMonitor.addCost(cost);
     return {
@@ -156,7 +161,15 @@ export async function generateChatGPTResponse(systemMessage: string, userMessage
     };
 }
 
-export async function generateOpenAIResponse(model: ModelName, prompt: string, temperature: number): Promise<ValueWithCost<string>> {
+export async function generateOpenAICompletion(model: ModelName, prompt: string, temperature: number): Promise<ValueWithCost<string>> {
+    logger.debug(`Completing prompt with model ${model} and temperature ${temperature}, prompt: ${prompt}`);
+    if (["gpt-4", "gpt-3.5-turbo"].includes(model)) {
+        return generateChatGPTResponse(
+            "Complete texts and output only what's requested, acting like a completion model",
+            prompt,
+            model);
+    }
+
     try {
         var textResponse: string | undefined;
         var tokensUsed: number | undefined;

@@ -28,6 +28,7 @@ CREATE TABLE decisions (
   ada TEXT NOT NULL,
   document_url TEXT NOT NULL,
   metadata JSONB,
+  issue_date DATE NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT now(),
   updated_at TIMESTAMP NOT NULL DEFAULT now(),
   UNIQUE(ingestor_task_id, ada)
@@ -110,6 +111,7 @@ CREATE TABLE decision_signers (
 CREATE TABLE texts (
   id SERIAL PRIMARY KEY,
   decision_id INTEGER REFERENCES decisions(id) ON DELETE CASCADE,
+  decision_ada TEXT NOT NULL,
   text_extractor_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
   text TEXT,
   document_metadata JSONB,
@@ -121,6 +123,7 @@ CREATE TABLE texts (
 CREATE TABLE summaries (
   id SERIAL PRIMARY KEY,
   text_id INTEGER REFERENCES texts(id) ON DELETE CASCADE,
+  decision_ada TEXT NOT NULL,
   summarizer_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
   summary TEXT,
   extracted_data JSONB,
@@ -132,6 +135,7 @@ CREATE TABLE summaries (
 CREATE TABLE embeddings (
   id SERIAL PRIMARY KEY,
   text_id INTEGER REFERENCES texts(id) ON DELETE CASCADE,
+  decision_ada TEXT NOT NULL,
   embedder_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
   embedding_seq INTEGER NOT NULL,
   embedding vector(768) NOT NULL,
@@ -143,6 +147,7 @@ CREATE TABLE embeddings (
 CREATE TABLE semantic_points (
   id SERIAL PRIMARY KEY,
   decision_id INTEGER REFERENCES decisions(id) ON DELETE CASCADE,
+  decision_ada TEXT NOT NULL,
   dimensionality_reducer_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
   x FLOAT NOT NULL,
   y FLOAT NOT NULL,
@@ -173,6 +178,7 @@ RETURNS TABLE (
   ada TEXT,
   organization_id TEXT,
   decision_metadata JSONB,
+  issue_date DATE,
   text TEXT,
   summary TEXT,
   extracted_data JSONB,
@@ -190,6 +196,7 @@ BEGIN
     d.ada,
     d.organization_diavgeia_id AS organization_id,
     d.metadata AS decision_metadata,
+    d.issue_date AS issue_date,
     t.text,
     s.summary,
     s.extracted_data AS extracted_data,
@@ -199,15 +206,16 @@ BEGIN
     sp.y
   FROM
     decisions d
-    LEFT JOIN texts t ON d.id = t.decision_id AND t.text_extractor_task_id = (SELECT text_extractor_task_id FROM c)
-    LEFT JOIN summaries s ON t.id = s.text_id AND s.summarizer_task_id = (SELECT summarizer_task_id FROM c)
-    LEFT JOIN embeddings e ON t.id = e.text_id AND e.embedder_task_id = (SELECT embedder_task_id FROM c)
-    LEFT JOIN semantic_points sp ON d.id = sp.decision_id AND sp.dimensionality_reducer_task_id = (SELECT dimensionality_reducer_task_id FROM c)
+    LEFT JOIN texts t ON d.ada = t.decision_ada AND t.text_extractor_task_id = (SELECT text_extractor_task_id FROM c)
+    LEFT JOIN summaries s ON t.decision_ada = s.decision_ada AND s.summarizer_task_id = (SELECT summarizer_task_id FROM c)
+    LEFT JOIN embeddings e ON t.decision_ada = e.decision_ada AND e.embedder_task_id = (SELECT embedder_task_id FROM c)
+    LEFT JOIN semantic_points sp ON d.ada = sp.decision_ada AND sp.dimensionality_reducer_task_id = (SELECT dimensionality_reducer_task_id FROM c)
   WHERE
     d.ingestor_task_id = (SELECT ingestor_task_id FROM c)
   GROUP BY
     d.ada,
     d.metadata,
+    d.issue_date,
     d.organization_diavgeia_id,
     t.text,
     s.summary,

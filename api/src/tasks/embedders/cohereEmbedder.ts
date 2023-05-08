@@ -36,6 +36,7 @@ class CohereEmbedder extends Embedder {
                     t.id,
                     text,
                     d.metadata as decision_metadata,
+                    d.ada as decision_ada,
                     s.extracted_data as extracted_data,
                     s.summary AS summary
                 FROM texts AS t
@@ -64,6 +65,7 @@ class CohereEmbedder extends Embedder {
                     embeddingCount++;
                     embeddings.push({
                         textId: inputDocument.id,
+                        decisionAda: inputDocument.decision_ada,
                         embedding: embedding,
                         seq: index + 1
                     });

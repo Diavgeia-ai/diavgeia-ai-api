@@ -46,7 +46,8 @@ class SimpleTextExtractor extends TextExtractor {
                 texts.push({
                     decisionId: inputDocument.id,
                     text: text,
-                    metadata: metadata
+                    metadata: metadata,
+                    decisionAda: inputDocument.ada
                 });
             }
 

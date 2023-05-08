@@ -1,7 +1,7 @@
 import { Socket } from "socket.io";
 import Logger from "./logger";
 import { badChatGPTAPIImport } from "./utils";
-import search from "./search";
+import { search } from "./search";
 
 let getSystemMessage = () => {
     return `
@@ -61,12 +61,14 @@ let tryCompleteJSON = (text: string) => {
     }
 }
 
+
 export const onConnect = async (socket: Socket) => {
     const api = await badChatGPTAPIImport(getSystemMessage());
 
     logger.info("New connection");
     let parentMessageId: (string | undefined) = undefined;
     socket.on("message", async (message) => {
+        socket.send(initialMessage);
         let searchQueries: string[] = [];
         let nextMessage = message.text;
         while (true) {
@@ -130,7 +132,7 @@ export const onConnect = async (socket: Socket) => {
                     inProgress: true
                 });
 
-                let results = await search(response.query, 5);
+                let results = await search(response.query, 5, { expandRelations: true });
                 if (!results) {
                     logger.error(`Unable to search for ${response.query}`);
                     socket.send({
@@ -147,7 +149,10 @@ export const onConnect = async (socket: Socket) => {
                             ada: result.ada,
                             subject: result.decision_metadata.subject,
                             summary: result.summary,
-                            extracted_data: result.extracted_data
+                            extracted_data: result.extracted_data,
+                            signers: result.signers.map((signer: any) => signer.first_name + " " + signer.last_name),
+                            organization: result.organization.name,
+                            units: result.units.map((unit: any) => unit.name),
                         }
                     })
                 }
